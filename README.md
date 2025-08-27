@@ -25,11 +25,21 @@ demo: https://ipusiron.github.io/bacon-cipherlab/
 
 「A=U+200B/B=U+200C」（ゼロ幅文字）を用いた高度なステガノグラフィーにも対応しています。
 
+---
+
 ## 🌐 デモページ
 
 👉 **[https://ipusiron.github.io/bacon-cipherlab/](https://ipusiron.github.io/bacon-cipherlab/)**
 
 ブラウザーで直接お試しいただけます。
+
+---
+
+## 📸 スクリーンショット
+
+>![a/bの対応表](assets/screenshot.png)
+>
+>*a/bの対応表*
 
 ---
 

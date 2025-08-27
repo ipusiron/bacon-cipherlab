@@ -5,38 +5,39 @@
   <title>Bacon CipherLab</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
+  <meta name="description" content="ベーコン暗号（Bacon's Cipher）をテーマにした学習・体験用のWebツール" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+  <meta name="referrer" content="no-referrer-when-downgrade">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="app-header">
-    <h1>🥓 Bacon CipherLab</h1>
-    <div class="header-actions">
-      <label class="toggle">
-        <input type="checkbox" id="themeToggle" />
-        <span>Dark</span>
-      </label>
-      <a class="btn ghost" href="https://github.com/ipusiron/bacon-cipherlab" target="_blank" rel="noopener">GitHub</a>
-      <a class="btn ghost" href="https://ipusiron.github.io/bacon-cipherlab/" target="_blank" rel="noopener">Demo</a>
+    <div class="header-title">
+      <h1>🥓 Bacon CipherLab</h1>
+      <p class="subtitle">ベーコン暗号（Bacon's Cipher）をテーマにした学習・体験用のWebツール</p>
     </div>
   </header>
 
   <nav class="tabs" role="tablist" aria-label="Bacon CipherLab Tabs">
-    <button class="tab active" data-tab="encode" role="tab" aria-selected="true">Encode</button>
-    <button class="tab" data-tab="decode" role="tab" aria-selected="false">Decode</button>
+    <button class="tab active" data-tab="encode" role="tab" aria-selected="true">Encrypt</button>
+    <button class="tab" data-tab="decode" role="tab" aria-selected="false">Decrypt</button>
     <button class="tab" data-tab="embed" role="tab" aria-selected="false">Cover Embed</button>
     <button class="tab" data-tab="extract" role="tab" aria-selected="false">Cover Extract</button>
-    <button class="tab" data-tab="matrix" role="tab" aria-selected="false">Matrix / History</button>
-    <button class="tab" data-tab="help" role="tab" aria-selected="false">Help</button>
+    <button class="tab" data-tab="matrix" role="tab" aria-selected="false">Matrix</button>
   </nav>
 
   <main>
-    <!-- Encode -->
-    <section id="encode" class="panel active" aria-labelledby="Encode">
+    <!-- Encrypt -->
+    <section id="encode" class="panel active" aria-labelledby="Encrypt">
       <div class="grid two">
         <div>
-          <h2>Encode（暗号化）</h2>
-          <label class="field">
+          <h2>Encrypt（暗号化）</h2>
+          <label class="field field-with-stats">
             <span>平文テキスト</span>
+            <span class="field-stats" id="statsEncInput">文字数: 0</span>
             <textarea id="encPlain" rows="8" placeholder="HELLO WORLD"></textarea>
           </label>
 
@@ -50,8 +51,9 @@
 
             <label>出力形式
               <select id="formatEnc">
-                <option value="AB">A/B</option>
                 <option value="01">0/1</option>
+                <option value="AB">A/B</option>
+                <option value="ab">a/b</option>
               </select>
             </label>
 
@@ -65,17 +67,20 @@
           </div>
 
           <div class="actions">
-            <button class="btn" id="btnEncode">ENCODE ⏵</button>
-            <button class="btn ghost" id="btnCopyEnc">コピー</button>
-            <button class="btn ghost" id="btnDownloadEnc">ダウンロード</button>
+            <button class="btn" id="btnEncode">ENCRYPT ⏵</button>
           </div>
-
-          <p class="stats" id="statsEnc">文字数: 0 / ビット数: 0</p>
         </div>
 
         <div>
-          <h3>結果</h3>
+          <div class="output-header">
+            <h3>結果</h3>
+            <span class="field-stats" id="statsEncOutput">ビット数: 0</span>
+          </div>
           <textarea id="encOut" rows="12" readonly></textarea>
+          <div class="actions">
+            <button class="btn ghost" id="btnCopyEnc">コピー</button>
+            <button class="btn ghost" id="btnDownloadEnc">ダウンロード</button>
+          </div>
           <details class="sidecard">
             <summary>対応（ライブ）</summary>
             <div id="encMapLive" class="mono small"></div>
@@ -84,14 +89,15 @@
       </div>
     </section>
 
-    <!-- Decode -->
-    <section id="decode" class="panel" aria-labelledby="Decode">
+    <!-- Decrypt -->
+    <section id="decode" class="panel" aria-labelledby="Decrypt">
       <div class="grid two">
         <div>
-          <h2>Decode（復号）</h2>
-          <label class="field">
-            <span>A/B または 0/1 列</span>
-            <textarea id="decCipher" rows="10" placeholder="AABBA AABAA ... または 00110 00101 ..."></textarea>
+          <h2>Decrypt（復号）</h2>
+          <label class="field field-with-stats">
+            <span>暗号列（0/1、A/B、a/b形式）</span>
+            <span class="field-stats" id="statsDec">ビット長: 0（5の倍数推奨）</span>
+            <textarea id="decCipher" rows="10" placeholder="00110 00101 ... または AABBA AABAA ... または aabba aabaa ..."></textarea>
           </label>
 
           <div class="row">
@@ -105,17 +111,17 @@
           </div>
 
           <div class="actions">
-            <button class="btn" id="btnDecode">⏴ DECODE</button>
-            <button class="btn ghost" id="btnCopyDec">コピー</button>
-            <button class="btn ghost" id="btnDownloadDec">ダウンロード</button>
+            <button class="btn" id="btnDecode">⏴ DECRYPT</button>
           </div>
-
-          <p class="stats" id="statsDec">ビット長: 0（5の倍数推奨）</p>
         </div>
 
         <div>
           <h3>復号テキスト</h3>
           <textarea id="decOut" rows="12" readonly></textarea>
+          <div class="actions">
+            <button class="btn ghost" id="btnCopyDec">コピー</button>
+            <button class="btn ghost" id="btnDownloadDec">ダウンロード</button>
+          </div>
           <details class="sidecard">
             <summary>途中経過</summary>
             <div id="decSteps" class="mono small"></div>
@@ -237,7 +243,7 @@
       </div>
     </section>
 
-    <!-- Matrix / History -->
+    <!-- Matrix -->
     <section id="matrix" class="panel" aria-labelledby="Matrix">
       <h2>対応表（Matrix）</h2>
 
@@ -250,57 +256,21 @@
         </label>
         <label>ビット表記
           <select id="matrixBits">
-            <option value="AB">A/B</option>
             <option value="01">0/1</option>
+            <option value="AB">A/B</option>
+            <option value="ab">a/b</option>
+            <option value="bold-italic">太字/斜体</option>
           </select>
+        </label>
+        <label>
+          <input type="checkbox" id="matrixReverse" />
+          2値表記を反転する
         </label>
       </div>
 
       <div id="matrixTable" class="matrix"></div>
-
-      <hr class="sep" />
-      <h2>歴史（History）</h2>
-      <article class="prose">
-        <h3>🕮 ベーコンの暗号観（1605）</h3>
-        <ul>
-          <li><strong>容易さ（Ease）</strong>：書くのが簡単で骨が折れない</li>
-          <li><strong>安全性（Safeness）</strong>：破られにくい</li>
-          <li><strong>秘匿性（Not raising suspicion）</strong>：疑念を抱かせない</li>
-        </ul>
-        <p>この発想は、A/B の5ビット列を字体や装飾に埋め込むという、ステガノグラフィー的な応用に通じます。</p>
-
-        <h3>🪦 フリードマン夫妻の墓碑とベーコン暗号</h3>
-        <p>アメリカの暗号研究の先駆者であるウィリアム＆エリザベス・フリードマン夫妻の墓石には、<em>Bacon’s Cipher</em> が刻まれていることで知られています。</p>
-        <p>碑には “KNOWLEDGE IS POWER” の言葉が記され（写真参照）、暗号 &amp; 知識への敬意を象徴します。</p>
-        <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/ANCExplorer_William_F._Friedman_grave.jpg"
-             alt="フリードマン夫妻の墓石" width="420" loading="lazy" />
-
-        <h3>👩‍🦰 エリザベス・F・フリードマン再評価</h3>
-        <p>禁酒法時代の密輸暗号解読、第二次大戦下のナチス・スパイ網解体など、彼女の功績は近年大きく再評価されています。</p>
-      </article>
     </section>
 
-    <!-- Help -->
-    <section id="help" class="panel" aria-labelledby="Help">
-      <h2>Help（座学）</h2>
-      <article class="prose">
-        <h3>ベーコン暗号とは</h3>
-        <p>英字を 5ビット（A/B=0/1）で表現し、文字装飾等に埋め込むことで秘匿を図る古典暗号です。24文字版（I/J・U/V統合）と26文字版のバリアントが存在します。</p>
-        <h3>使い方（MVP）</h3>
-        <ul>
-          <li><strong>Encode:</strong> 平文 → A/B または 0/1</li>
-          <li><strong>Decode:</strong> A/B or 0/1 → 平文</li>
-          <li><strong>Cover Embed:</strong> 暗号列をカバーテキストに埋め込み（大小・太字・斜体・ゼロ幅）</li>
-          <li><strong>Cover Extract:</strong> 埋め込み済みテキストから抽出</li>
-          <li><strong>Matrix:</strong> 24/26の対応表と歴史</li>
-        </ul>
-        <h3>注意</h3>
-        <ul>
-          <li>ステガノ用途向け。現代暗号強度はありません。</li>
-          <li>ゼロ幅は環境で失われる場合あり（SNS/CMS）。</li>
-        </ul>
-      </article>
-    </section>
   </main>
 
   <footer>

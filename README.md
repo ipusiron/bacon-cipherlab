@@ -1,11 +1,38 @@
 <!--
 ---
-title: Bacon CipherLab
-category: classic-crypto
-difficulty: 1
-description: Educational Bacon's Cipher lab: encoding/decoding, steganographic embedding, and historical insights.
-tags: [bacon-cipher, classical-cryptography, steganography, cryptanalysis, education, web-tool]
-demo: https://ipusiron.github.io/bacon-cipherlab/
+id: day055
+slug: bacon-cipherlab
+
+title: "Bacon CipherLab"
+
+subtitle_ja: "ベーコン暗号の体験ツール"
+subtitle_en: "Interactive Bacon's Cipher Learning Tool"
+
+description_ja: "ベーコン暗号（Bacon's Cipher）をテーマにした学習・体験用のWebツール。平文⇔暗号文の変換だけでなく、カバーテキストへの埋め込み・抽出を通してステガノグラフィーの思想を理解できます。ゼロ幅文字を用いた高度なステガノグラフィーにも対応。"
+description_en: "Educational web tool for learning Bacon's Cipher. Supports encoding/decoding between plaintext and ciphertext, plus steganographic embedding/extraction into cover text. Features advanced steganography using zero-width characters."
+
+category_ja:
+  - 古典暗号
+  - ステガノグラフィー
+category_en:
+  - Classical Cryptography
+  - Steganography
+
+difficulty: 2
+
+tags:
+  - bacon-cipher
+  - classical-cryptography
+  - steganography
+  - cryptanalysis
+  - education
+  - web-tool
+  - ctf
+
+repo_url: "https://github.com/ipusiron/bacon-cipherlab"
+demo_url: "https://ipusiron.github.io/bacon-cipherlab/"
+
+hub: true
 ---
 -->
 

@@ -84,7 +84,7 @@ test('暗号化は全角英字を半角に、英字以外（空白を除く）�
 });
 
 test('復号: A・a・0 と B・b・1 を読み、空白は飛ばし、全角は半角にする。ほかの文字は数えるか、strict なら止める', () => {
-  assert.deepEqual(C.parseCipher('AABBB aabaa 01 ＡＢ'), { ok: true, bits: '001110010001' + '01', invalid: 0, first: null });
+  assert.deepEqual(C.parseCipher('AABBB aabaa 01 ＡＢ'), { ok: true, bits: '001110010001' + '01', invalid: 0, first: null, extras: [] });
   const loose = C.parseCipher('AABBB-AABAA/x');
   assert.equal(loose.ok, true);
   assert.equal(loose.bits, '0011100100');
@@ -253,4 +253,107 @@ test('ダウンロード用の HTML 文書は、題名をエスケープし、�
 test('反転は 0 と 1 を入れ替える', () => {
   assert.equal(C.invertBits('00101'), '11010');
   assert.equal(C.invertBits(''), '');
+});
+
+// ===== 第2弾: 解読の補助 =====
+
+test('英語の文字の出現頻度は26字そろい、Wikipedia の表（Lewand）と同じ値。英単語の一覧は3字以上の大文字で重ならない', () => {
+  assert.equal(Object.keys(C.FREQ).length, 26);
+  assert.deepEqual([C.FREQ.E, C.FREQ.T, C.FREQ.Z, C.FREQ.J], [12.7, 9.1, 0.074, 0.16]);
+  assert.ok(C.WORDS.length >= 200, String(C.WORDS.length));
+  for (const w of C.WORDS) assert.match(w, /^[A-Z]{3,}$/, w);
+  assert.equal(new Set(C.WORDS).size, C.WORDS.length);
+});
+
+test('1ビット違いの候補: 範囲外の符号から、どれかの字に当たる符号を出す', () => {
+  assert.deepEqual(C.nearLetters('11101', '24'), ['O', 'X']);
+  assert.deepEqual(C.nearLetters('11000', '24'), ['I', 'R']);
+  assert.deepEqual(C.nearLetters('11111', '24'), ['Q', 'Z']);
+  assert.deepEqual(C.nearLetters('11010', '26'), ['K', 'S', 'Y']);
+});
+
+test('復号の読み: 候補つきの読みと、英単語の一覧での読み替え（24文字版の V と、? の候補）', () => {
+  const love = C.readCipher('ababa abbab baabb aabaa', '24');
+  assert.equal(love.text, 'LOUE');
+  assert.equal(love.annotated, 'LO[U/V]E');
+  assert.equal(love.resolved, 'LOVE');
+  const bacon = C.readCipher('aaaab aaaaa aaaba bbbab abbaa', '24');
+  assert.equal(bacon.text, 'BAC?N');
+  assert.equal(bacon.annotated, 'BAC[O/X]N');
+  assert.equal(bacon.resolved, 'BACON');
+  assert.deepEqual(bacon.words, ['BACON']);
+  assert.equal(C.readCipher('aabbb abaaa', '26').annotated, 'HI');
+});
+
+test('復号の読み: ずれ（0〜4、範囲の外は丸める）と a・b の入れ替え', () => {
+  const bits = C.formatBits(C.encode('Dawn', '24').bits, 'ab', '5');
+  assert.equal(C.readCipher(`ba ${bits}`, '24', { offset: 2 }).text, 'DAWN');
+  assert.equal(C.readCipher(`ba ${bits}`, '24', { offset: 9 }).offset, 4);
+  assert.equal(C.readCipher(`ba ${bits}`, '24', { offset: -1 }).offset, 0);
+  const inv = C.formatBits(C.invertBits(C.encode('Dawn', '24').bits), 'ab', '5');
+  assert.equal(C.readCipher(inv, '24', { invert: true }).text, 'DAWN');
+});
+
+test('復号の読み: a/b 以外の文字を元の位置に残す（a/b の字の暗号文では数字の 0・1 も残す）', () => {
+  const r = C.readCipher('aaaab 4 aaaba abbab 1 abbaa _ aaaaa', '24', { keep: true });
+  assert.equal(r.text, 'B4CO1N_A');
+  assert.equal(r.kept, 3);
+  assert.equal(r.invalid, 0);
+  // 0/1 で書いた暗号文では 0・1 は記号のまま。ほかの記号だけ残す
+  assert.equal(C.readCipher('00001-00000', '24', { keep: true }).text, 'B-A');
+  // 組の途中の文字は、その組を読んだ後ろに置く
+  assert.equal(C.readCipher('aa!aab', '24', { keep: true }).text, 'B!');
+  // keep のときは strict でも止めない
+  assert.equal(C.readCipher('aaaab#', '24', { keep: true, strict: true }).ok, true);
+});
+
+test('英語らしさの採点: 英語の文は乱れた文より高く、1つの字に偏った文と ? の多い文は低い', () => {
+  const s = (x) => C.englishScore(x, '24').score;
+  assert.ok(s('MEETATNOON') > s('QZXKWYPQVZ'));
+  assert.ok(s('MEETATNOON') > s('AAAAAAAAAB'));
+  assert.ok(s('MEETATNOON') > s('M??TAT??ON'));
+  assert.deepEqual(C.englishScore('THEFLAGISBACON', '24').words, ['THE', 'FLAG', 'BACON']);
+  assert.equal(C.englishScore('', '24').score, -99);
+});
+
+test('読み方: 記号・大小・A〜M/N〜Z・単語の頭文字・子音と母音・2種類の記号・太字・斜体・ゼロ幅を、0 と 1 の両方があるときだけ出す', () => {
+  const ids = (x) => C.readings(x).map((r) => r.id);
+  assert.deepEqual(ids('aabbb aabaa'), ['symbols']);
+  assert.deepEqual(ids('KnOwledGe Is pOwEr'), ['case', 'half', 'vowel']);
+  assert.ok(ids('<b>Kn</b>ow<i>le</i>dge').includes('bold') && ids('<b>Kn</b>ow<i>le</i>dge').includes('italic'));
+  assert.ok(ids(C.makeSample('zw')).includes('zw'));
+  const two = C.readings(C.makeSample('emoji')).find((r) => r.id === 'two');
+  assert.deepEqual([two.a, two.b], [cp(0x1f373), cp(0x1f953)]);
+  assert.deepEqual(ids('all lower case words here only'), ['half', 'word', 'vowel']);
+  assert.deepEqual(ids('abc'), []);
+});
+
+test('総当たり: 解析タブの例は、どれも正しい読み方・版・ずれ・入れ替えが1位になる', () => {
+  const want = {
+    case: ['THEFLAGISBACON', 'case', '24', false, 0],
+    shift: ['ATTACKATDAWN', 'symbols', '24', false, 2],
+    emoji: ['BACONANDEGGS', 'two', '26', false, 0],
+    word: ['STOP', 'word', '24', false, 0],
+    zw: ['MEETATNOON', 'zw', '24', false, 0]
+  };
+  for (const id of C.SAMPLE_IDS) {
+    const top = C.solve(C.makeSample(id)).candidates[0];
+    assert.deepEqual([top.text, top.reading, top.variant, top.invert, top.offset], want[id], id);
+    assert.ok(top.score >= 1, `${id}: ${top.score}`);
+  }
+});
+
+test('総当たり: a と b を入れ替えた暗号文と、24文字版の V を含む文', () => {
+  const inv = C.formatBits(C.invertBits(C.encode('Meet at the bridge', '24').bits), 'AB', '5');
+  const top = C.solve(inv).candidates[0];
+  assert.deepEqual([top.text, top.invert], ['MEETATTHEBRIDGE', true]);
+  const love = C.solve(C.formatBits(C.encode('I love bacon', '24').bits, 'AB', '5')).candidates[0];
+  assert.deepEqual([love.text, love.resolved], ['ILOUEBACON', 'ILOVEBACON']);
+});
+
+test('総当たり: 何も隠していない文と読み方のない文', () => {
+  const plain = C.solve('The quick brown fox jumps over the lazy dog. Nothing is hidden in this sentence at all, I promise.');
+  assert.ok(plain.candidates[0].score < 1, String(plain.candidates[0].score));
+  assert.deepEqual(C.solve('12345 !!!').candidates, []);
+  assert.equal(C.solve('aabbb aabaa').tried, 20);
 });

@@ -10,7 +10,7 @@ English · [日本語](README.md)
 
 **Day055 - 100 Security Tools with Generative AI**
 
-Bacon CipherLab is a tool for trying Bacon's cipher. Each letter becomes a code of five a/b symbols, and the sequence is then hidden in the shapes of the letters of a text (uppercase and lowercase, bold, italic) or in invisible zero-width characters. You can follow the whole round trip of conversion, embedding and extraction with both the 24-letter table Bacon published in 1623 and the later 26-letter variant. Nothing is sent over the network.
+Bacon CipherLab is a tool for trying Bacon's cipher. Each letter becomes a code of five a/b symbols, and the sequence is then hidden in the shapes of the letters of a text (uppercase and lowercase, bold, italic) or in invisible zero-width characters. You can follow the whole round trip of conversion, embedding and extraction with both the 24-letter table Bacon published in 1623 and the later 26-letter variant. Decryption that copes with offsets, swapped a and b and misread codes, and a Solve tab that tries every reading, let you examine texts even when you do not know how they were hidden. Nothing is sent over the network.
 
 ---
 
@@ -47,6 +47,14 @@ Try it directly in your browser.
 >![Preview of a message embedded in bold](assets/en/screenshot6.png)
 >
 >*Preview of a message embedded in bold*
+
+>![A CTF challenge text examined in the Solve tab](assets/en/screenshot7.png)
+>
+>*A CTF challenge text examined in the Solve tab*
+
+>![The Decrypt tab reading a ciphertext shifted by 2 bits with an offset](assets/en/screenshot8.png)
+>
+>*The Decrypt tab reading a ciphertext shifted by 2 bits with an offset*
 
 ---
 
@@ -92,6 +100,10 @@ The case, bold and italic methods of this tool are an easy modern version of the
 - Reads ciphertext written with a/b, A/B or 0/1. Spaces are skipped as separators
 - Other characters are either skipped, or reading stops and the position of the first one is shown
 - Reports trailing bits that are fewer than five, and codes that match no letter (shown as "?")
+- Reads with an offset (bits skipped at the start, 0 to 4) and with a and b swapped
+- Can keep characters other than a/b (digits, symbols) in place (for flag formats such as `B4CON`)
+- Shows a reading with candidates: I and U in the 24-letter variant as [I/J] and [U/V], and letters one bit away from a "?" (for example [O/X])
+- Shows a reading that fills in J, V and "?" to match a list of English words (for example ILOUEBACON → ILOVEBACON, BAC?N → BACON)
 
 ### Embed
 
@@ -106,6 +118,13 @@ The case, bold and italic methods of this tool are an easy modern version of the
 - Reads case and zero-width characters from text, and bold and italic from HTML (including the way Word and Google Docs write it)
 - Drops the trailing padding (groups of aaaaa) and says how many letters were dropped
 - Reports zero-width characters this tool does not use (ZWJ, WORD JOINER, BOM), if any
+
+### Solve
+
+- Takes anything in the pasted text that comes in two kinds as a reading (a/b symbols, uppercase and lowercase, A–M and N–Z, first letters of words, consonants and vowels, exactly two kinds of symbols, bold and italic, zero-width characters)
+- Tries every reading × variant (24 or 26 letters) × a/b swap × offset (0 to 4 bits), and lists the five best with the reading, variant, offset and score breakdown
+- "Open in the Decrypt tab" puts a candidate's ciphertext and settings into the Decrypt tab to check it
+- Examples (a CTF challenge text, a ciphertext shifted by 2 bits, two kinds of emoji, first letters of words, zero-width characters) can be inserted from the page
 
 ### Table
 
@@ -128,6 +147,7 @@ The case, bold and italic methods of this tool are an easy modern version of the
 4. Press "Read it in the Extract tab" to put the result into the Extract tab and see that it turns back into the message
 5. Hand over text embedded in bold or italic as copied HTML or a downloaded file. Case and zero-width characters can be copied as plain text
 6. Paste a text you received into the Extract tab and read it with the same method and variant used for embedding
+7. Paste a text whose hiding method you do not know into the Solve tab. Use "Open in the Decrypt tab" on a top candidate to check the offset and swap
 
 ---
 
@@ -199,6 +219,40 @@ Bacon's cipher has no symbol for the end of a message. If the cover text is long
 
 HTML is parsed by reading its tokens in the core, not by the browser's HTML parser, because letting the browser parse `style` attributes under the CSP reports violations.
 
+### Offsets, swaps and candidates for misreadings
+
+Extra bits at the start of a ciphertext shift the five-bit boundaries and produce other letters. The "Offset" in the Decrypt tab sets how many bits (0 to 4) to skip at the start. If a and b were assigned the other way round, read with them swapped.
+
+A code that matches no letter ("?") may be a one-bit misreading. Codes that match a letter when one bit is changed are shown as candidates, such as [O/X]. In the 24-letter variant, I and J, and U and V, share a code, so I and U are shown as [I/J] and [U/V]. A reading that fills in J, V and "?" to match the core's list of English words (204 words) is also shown. It is a guess from the candidates.
+
+"Keep characters other than a/b in place" puts each non-symbol character after the letters read before it. In ciphertext written with a/b letters, the digits 0 and 1 are also kept as characters rather than read as symbols.
+
+### Readings and scores in the Solve tab
+
+| Reading | Becomes a | Becomes b | Taken from |
+|---|---|---|---|
+| a/b, A/B, 0/1 symbols | a, A, 0 | b, B, 1 | Texts where at least 80% of non-space characters are symbols |
+| Case | Lowercase | Uppercase | Letters |
+| A–M and N–Z (each letter) | A–M | N–Z | Letters (either case) |
+| First letters of words (A–M and N–Z) | Words starting with A–M | Words starting with N–Z | The first letter of each space-separated word |
+| Consonants and vowels | Consonants | Vowels (A, E, I, O, U) | Letters |
+| Two kinds of symbols | The symbol that appears first | The other symbol | Texts with exactly two kinds of non-space characters (counted as graphemes) |
+| Bold | Normal | Bold | Non-space characters in HTML |
+| Italic | Normal | Italic | Non-space characters in HTML |
+| Zero-width characters | U+200B | U+200C | Zero-width characters |
+
+Because swaps are tried anyway, a reading that is only another reading with a and b swapped is left out. Each reading is read with the 24- and 26-letter variants, with and without the swap, and with offsets of 0 to 4 bits; the trailing padding (groups of aaaaa) is dropped before scoring.
+
+The score is English-likeness + 1.2 × the share of letters covered by English words − 2 × the share of "?" − the bias toward one letter. English-likeness is the log-likelihood per letter under English letter frequencies (the table in Wikipedia's "Letter frequency", sourced from Lewand's 2000 book), compared with a uniform distribution. For readings of six letters or more, the bias subtracts four times the amount by which the most common letter exceeds 30%. Readings shorter than four letters lose 1. A score of 1 or more is shown as "Reads as English", and 0.5 or more as "Might be English".
+
+| Example | Top reading | Reading | Variant | Offset |
+|---|---|---|---|---|
+| CTF challenge text (case) | `THEFLAGISBACON` | Case | 24-letter variant | 0 |
+| Ciphertext shifted by 2 bits | `ATTACKATDAWN` | a/b, A/B, 0/1 symbols | 24-letter variant | 2 |
+| Two kinds of emoji | `BACONANDEGGS` | Two kinds of symbols | 26-letter variant | 0 |
+| First letters of words (A–M and N–Z) | `STOP` | First letters of words (A–M and N–Z) | 24-letter variant | 0 |
+| Zero-width characters | `MEETATNOON` | Zero-width characters | 24-letter variant | 0 |
+
 ### Zero-width characters
 
 U+200B (ZERO WIDTH SPACE) and U+200C (ZERO WIDTH NON-JOINER) are both format characters (General Category Cf) that are normally not displayed (Default_Ignorable_Code_Point). They are not always invisible, though. Editors that show hidden characters display them, and U+200C breaks joining and ligatures in scripts such as Arabic. In justified text, the spacing may also change. The NFKC_CF normalization of Unicode removes them.
@@ -251,7 +305,7 @@ WelCome TO Our CompaNy HoMePage. we are COmmItteD to eXcellEnce in eveRytHInG wE
 → `THEFLAGISBACON` (case, 24 letters)
 
 - When solving, look for anything that comes in two kinds: uppercase and lowercase, bold and normal, two kinds of symbols
-- Try both the 24-letter and 26-letter variants, and also try swapping a and b
+- Try both the 24-letter and 26-letter variants, and also try swapping a and b. Pasting the challenge text into the Solve tab tries every reading, variant, swap and offset
 - `{}` and digits cannot be written in Bacon's cipher, so when setting a challenge, state the flag format separately in the text
 
 ### Scenario 1: hiding in an article (fictional example)
@@ -322,6 +376,7 @@ If the service where it is posted removes zero-width characters, the message dis
 - Bold and italic survive only in HTML and word-processor documents. Zero-width characters disappear when a service or editor removes them
 - Extraction drops trailing "all a" groups as padding. If the message ends in A, uncheck the box to keep them
 - Characters other than letters (digits, symbols, non-Latin text) cannot be encrypted
+- The Solve score is a guide based on English letter frequencies and a list of English words. For short texts or texts not in English (such as Latin), the right reading may not come out on top. Even for English text that hides nothing, a short word may appear as "Might be English"
 - Each field accepts up to 100,000 characters
 - The author does not encourage uses that deceive or harm people
 
@@ -335,9 +390,9 @@ npm test
 
 - Runs with `node --test` on Node.js 22 or later, with no dependencies (no `npm install` needed)
 - Runs on GitHub Actions for every push and pull request
-- `test/core.test.js`: the 24 rows of Bacon's original table and the 26-letter table, known answers for Fuge, HELLO, SOS and the gravestone, notes from decryption, round trips for 4 methods × 2 variants, intact emoji, and reading HTML tokens
+- `test/core.test.js`: the 24 rows of Bacon's original table and the 26-letter table, known answers for Fuge, HELLO, SOS and the gravestone, notes from decryption, round trips for 4 methods × 2 variants, intact emoji, reading HTML tokens, offset, swap and kept-character readings, one-bit candidates and readings matched to English words, and every Solve example coming out on top
 - `test/html.test.js`, `test/contrast.test.js`, `test/messages.test.js`, `test/i18n.test.js`, `test/format.test.js`: the CSP, tab ARIA, dictionary and page text, color contrast (4.5:1 and 3:1), and formatting
-- `test/readme.test.js`: checks the README's code table, examples, gravestone and use cases against the core, and the headings, images and directory structure of the Japanese and English READMEs
+- `test/readme.test.js`: checks the README's code table, examples, Solve examples, gravestone and use cases against the core, and the headings, images and directory structure of the Japanese and English READMEs
 
 ---
 
@@ -355,6 +410,7 @@ npm test
 - [The Unicode Standard, Version 18.0 Core Specification](https://www.unicode.org/versions/Unicode18.0.0/core-spec/)
 - [W3C, "Content Security Policy Level 3"](https://www.w3.org/TR/CSP3/)
 - [WHATWG HTML Standard, "Pragma directives"](https://html.spec.whatwg.org/multipage/semantics.html#pragma-directives)
+- [Wikipedia, "Letter frequency"](https://en.wikipedia.org/wiki/Letter_frequency)
 - [CyberChef (Bacon.mjs)](https://github.com/gchq/CyberChef/blob/master/src/core/lib/Bacon.mjs)
 - [dCode, "Bacon Cipher"](https://www.dcode.fr/bacon-cipher)
 
@@ -374,7 +430,9 @@ bacon-cipherlab/
 │   │   ├── screenshot3.png        # Notes in the Decrypt tab (English, dark)
 │   │   ├── screenshot4.png        # Extracting from bold HTML (English)
 │   │   ├── screenshot5.png        # Table (English, dark)
-│   │   └── screenshot6.png        # Embedding in bold (English)
+│   │   ├── screenshot6.png        # Embedding in bold (English)
+│   │   ├── screenshot7.png        # Solve tab (English)
+│   │   └── screenshot8.png        # Decrypting with an offset (English)
 │   ├── bacon-1640-accommodation.jpg # Bacon's example (1640 translation, p. 268)
 │   ├── bacon-1640-table.jpg       # Bacon's table (1640 translation, p. 266)
 │   ├── screenshot.png             # Embedding with zero-width characters
@@ -382,9 +440,11 @@ bacon-cipherlab/
 │   ├── screenshot3.png            # Notes in the Decrypt tab (dark)
 │   ├── screenshot4.png            # Extracting from bold HTML
 │   ├── screenshot5.png            # Table (dark)
-│   └── screenshot6.png            # Embedding in bold
+│   ├── screenshot6.png            # Embedding in bold
+│   ├── screenshot7.png            # Solve tab
+│   └── screenshot8.png            # Decrypting with an offset
 ├── js/                            # Scripts loaded by the page
-│   ├── bacon-core.js              # Core (tables, encryption, decryption, embedding, extraction, HTML token reading)
+│   ├── bacon-core.js              # Core (tables, encryption, decryption, embedding, extraction, HTML token reading, solving)
 │   ├── i18n.js                    # Language choice and replacement of text in the HTML
 │   ├── messages.js                # Japanese and English text
 │   ├── theme-init.js              # Applies the saved theme before drawing

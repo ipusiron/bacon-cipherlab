@@ -39,6 +39,8 @@
       data-i18n="tab.embed">埋め込み</button>
     <button type="button" class="tab-btn" role="tab" id="tab-extract" data-tab="extract" aria-controls="panel-extract" aria-selected="false" tabindex="-1"
       data-i18n="tab.extract">抽出</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-solve" data-tab="solve" aria-controls="panel-solve" aria-selected="false" tabindex="-1"
+      data-i18n="tab.solve">解析</button>
     <button type="button" class="tab-btn" role="tab" id="tab-table" data-tab="table" aria-controls="panel-table" aria-selected="false" tabindex="-1"
       data-i18n="tab.table">対応表</button>
   </nav>
@@ -118,10 +120,34 @@
               <input type="checkbox" id="dec-skip" checked>
               <span data-i18n="decode.skip">a/b・A/B・0/1と空白以外の文字を飛ばす</span>
             </label>
+            <label class="check-row" for="dec-keep">
+              <input type="checkbox" id="dec-keep">
+              <span data-i18n="decode.keep">a/b以外の文字（数字・記号）を元の位置に残す</span>
+            </label>
+            <label class="check-row" for="dec-invert">
+              <input type="checkbox" id="dec-invert">
+              <span data-i18n="decode.invert">aとbを入れ替えて読む</span>
+            </label>
+            <div class="options">
+              <div class="option">
+                <label class="field-label" for="dec-offset" data-i18n="decode.offset">ずれ（先頭から飛ばすビット）</label>
+                <select id="dec-offset" class="select">
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint" data-i18n="decode.solveHint">ずれ・入れ替え・読み方がわからないときは、解析タブで総当たりできます。</p>
           </div>
           <div>
             <label class="field-label" for="dec-out" data-i18n="decode.outLabel">平文</label>
-            <textarea id="dec-out" class="text-area mono" rows="6" readonly spellcheck="false"></textarea>
+            <textarea id="dec-out" class="text-area mono" rows="4" readonly spellcheck="false"></textarea>
+            <label class="field-label" for="dec-annot" data-i18n="decode.annotLabel">候補つきの読み</label>
+            <textarea id="dec-annot" class="text-area mono" rows="3" readonly spellcheck="false"></textarea>
+            <p class="hint" data-i18n="decode.annotNote">[I/J]・[U/V]は24文字版で同じ符号の字、?の位置の[O/X]のような候補は、1ビット違いで当たる字です。</p>
             <div class="actions">
               <button type="button" id="btn-dec-copy" class="btn" data-i18n="btn.copy">コピー</button>
               <button type="button" id="btn-dec-download" class="btn ghost" data-i18n="btn.download">ダウンロード</button>
@@ -242,6 +268,38 @@
             <div id="extract-status" class="status" aria-live="polite"></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- 解析 -->
+    <section id="panel-solve" class="panel" role="tabpanel" aria-labelledby="tab-solve" hidden>
+      <div class="card">
+        <h2 data-i18n="solve.title">解析（読み方を総当たりする）</h2>
+        <p class="lead" data-i18n="solve.lead">怪しい文を貼ると、2通りに分かれるもの（a/bの記号、大文字と小文字、A〜MとN〜Z、単語の頭文字、子音と母音、2種類だけの記号、太字・斜体、ゼロ幅文字）を読み方として、24文字版・26文字版、aとbの入れ替え、0〜4ビットのずれを総当たりし、英語らしい順に並べます。</p>
+        <label class="field-label" for="solve-in" data-i18n="solve.inLabel">調べる文</label>
+        <textarea id="solve-in" class="text-area" rows="6" spellcheck="false"></textarea>
+        <div class="options">
+          <div class="option">
+            <label class="field-label" for="solve-sample" data-i18n="solve.sampleLabel">例</label>
+            <select id="solve-sample" class="select">
+              <option value="case" data-i18n="sample.case">CTFの問題文（大小）</option>
+              <option value="shift" data-i18n="sample.shift">2ビットずれた暗号文</option>
+              <option value="emoji" data-i18n="sample.emoji">絵文字2種類</option>
+              <option value="word" data-i18n="sample.word">単語の頭文字（A〜MとN〜Z）</option>
+              <option value="zw" data-i18n="sample.zw">ゼロ幅文字</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" id="btn-solve-sample" class="btn ghost" data-i18n="solve.sampleButton">例を入れる</button>
+        </div>
+        <div id="solve-status" class="status" aria-live="polite"></div>
+        <ol id="solve-results" class="results"></ol>
+        <p class="hint" data-i18n="solve.note">点数は、英語の文字の出現頻度と英単語の一覧から出す目安です。短い文や英語でない文（ラテン語など）では、正しい読みが上位に来ないことがあります。</p>
+        <details class="sidecard">
+          <summary data-i18n="solve.statsTitle">読み方ごとの統計</summary>
+          <ul id="solve-stats" class="stats-list"></ul>
+        </details>
       </div>
     </section>
 

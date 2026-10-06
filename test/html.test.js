@@ -7,7 +7,7 @@ const { MESSAGES, t } = load('js/messages.js').BaconMessages;
 const { parseVars } = load('js/i18n.js').BaconI18n;
 const SCRIPTS = ['script.js', 'js/bacon-core.js', 'js/messages.js', 'js/i18n.js', 'js/theme.js', 'js/theme-init.js'];
 const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-const TABS = ['encode', 'decode', 'embed', 'extract', 'solve', 'table'];
+const TABS = ['encode', 'decode', 'embed', 'extract', 'solve', 'biform', 'table'];
 
 test('CSP はスクリプト・スタイルを同じ場所のファイルだけに限り、unsafe-inline と外部の通信を許さない', () => {
   const csp = html.match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/)[1];
@@ -57,7 +57,8 @@ test('ボタンは type="button"。入力欄には label があり、暗号文�
 });
 
 test('結果の知らせの欄には aria-live がある', () => {
-  for (const id of ['enc-status', 'dec-status', 'embed-status', 'embed-hint', 'extract-status', 'solve-status', 'table-status']) {
+  for (const id of ['enc-status', 'dec-status', 'embed-status', 'embed-hint', 'extract-status', 'solve-status', 'lab-status', 'route-status',
+    'table-status']) {
     assert.match(html, new RegExp(`id="${id}"[^>]*aria-live="polite"`), id);
   }
 });
@@ -148,4 +149,21 @@ test('解析タブの例の選択肢は計算部の例と同じ順。復号タ�
   assert.deepEqual([...sel.matchAll(/value="([^"]+)"/g)].map((m) => m[1]), C.SAMPLE_IDS);
   const off = html.match(/<select id="dec-offset"[\s\S]*?<\/select>/)[0];
   assert.deepEqual([...off.matchAll(/value="([^"]+)"/g)].map((m) => m[1]), ['0', '1', '2', '3', '4']);
+});
+
+test('画面の画像は assets/ にあり、大きさと代替テキストを持つ。二書体の書体は計算部と CSS で同じ並び', () => {
+  const fs = { existsSync: (f) => { try { read(f); return true; } catch { return false; } } };
+  const imgs = [...html.matchAll(/<img [^>]*>/g)].map((m) => m[0]);
+  assert.equal(imgs.length, 1);
+  for (const img of imgs) {
+    const src = img.match(/src="([^"]+)"/)[1];
+    assert.match(src, /^assets\/[a-z0-9-]+\.jpg$/);
+    assert.ok(fs.existsSync(src), src);
+    assert.match(img, /width="\d+" height="\d+"/);
+    assert.match(img, /data-i18n-attr="alt:biform\.plateAlt"/);
+  }
+  const C = load('js/bacon-core.js').BaconCore;
+  const css = read('style.css');
+  assert.ok(css.includes(`.form-a { font-family: ${C.FONT_A}; }`));
+  assert.ok(css.includes(`.form-b { font-family: ${C.FONT_B}; }`));
 });

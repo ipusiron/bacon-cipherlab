@@ -180,7 +180,7 @@ test('ゼロ幅の抽出は数値文字参照も読み、ほかのツールの�
   assert.equal(x.other, 2);
 });
 
-test('往復: 4方式 × 2版 × 乱数のメッセージで、埋め込んで抽出すると同じメッセージに戻る', () => {
+test('往復: 5方式 × 2版 × 乱数のメッセージで、埋め込んで抽出すると同じメッセージに戻る', () => {
   const rnd = seeded(55);
   const covers = [
     'The quick brown fox jumps over the lazy dog. '.repeat(12),
@@ -210,7 +210,7 @@ test('往復: 4方式 × 2版 × 乱数のメッセージで、埋め込んで�
       }
     }
   }
-  assert.equal(n, 2 * 20 * 7);
+  assert.equal(n, 2 * 20 * 9);
 });
 
 // runs を「印の付いた字」の a/b 列にする（空白以外）
@@ -356,4 +356,78 @@ test('総当たり: 何も隠していない文と読み方のない文', () => 
   assert.ok(plain.candidates[0].score < 1, String(plain.candidates[0].score));
   assert.deepEqual(C.solve('12345 !!!').candidates, []);
   assert.equal(C.solve('aabbb aabaa').tried, 20);
+});
+
+// ===== 第3弾: 二書体・生存性・練習 =====
+
+test('二書体: 書体名の並びの最初の名前でセリフか決める（sans-serif を先に見る）', () => {
+  assert.equal(C.serifOf('"Times New Roman", serif'), true);
+  assert.equal(C.serifOf("Georgia, 'Times New Roman', Times, serif"), true);
+  assert.equal(C.serifOf('Arial, sans-serif'), false);
+  assert.equal(C.serifOf('sans-serif'), false);
+  assert.equal(C.serifOf('游明朝, serif'), true);
+  assert.equal(C.serifOf('Meiryo'), false);
+  assert.equal(C.serifOf('monospace'), null);
+  assert.equal(C.serifOf(''), null);
+});
+
+test('二書体: 埋め込みの HTML は、全体をサンセリフ、b の字をセリフの span にし、読み戻せる', () => {
+  const bits = C.encode('Fuge', '24').bits;
+  const r = C.embed('Manere te volo donec venero, my friend', bits, 'font');
+  assert.ok(r.html.startsWith(`<span style="font-family: ${C.FONT_A}">`));
+  assert.ok(r.html.includes(`<span style="font-family: ${C.FONT_B}">`));
+  assert.equal(C.readMessage(C.extractRuns(C.runsFromHtml(r.html), 'font').bits, '24').text, 'FUGE');
+  assert.equal(C.capacity('font', 'ab cd'), 4);
+});
+
+test('二書体: Word の書き出し（Times New Roman・Arial）と font の face も読む。書体の指定がない字は親の書体を引き継ぐ', () => {
+  const word = '<p class=MsoNormal><span style=\'font-family:"Times New Roman",serif\'>K</span><span style=\'font-family:Arial,sans-serif\'>n'
+    + '<b>o</b></span><font face="Georgia">w</font>le</p>';
+  const runs = C.runsFromHtml(word);
+  assert.equal(marks(runs, 'serif'), 'baabaa');
+  assert.deepEqual(C.readings(word).map((x) => x.id).includes('font'), true);
+  assert.deepEqual(runs.filter((x) => x.serif === null).map((x) => x.text), ['le']);
+});
+
+test('生存性: 5方式 × 8経路の表（大小は大文字・小文字にそろえると消え、装飾はプレーンテキストで消え、ゼロ幅は不可視の文字の除去で消える）', () => {
+  const cover = 'Construction work in the city is going well today. Many workers are busy at the new bridge, and good weather is expected.';
+  const r = C.survival(cover, C.encode('Meet at noon', '24').bits, '24');
+  assert.equal(r.want, 'MEETATNOON');
+  assert.deepEqual(r.methods.map((m) => m.method), C.METHODS);
+  const table = Object.fromEntries(r.methods.map((m) => [m.method, m.cells.map((c) => (c.survived ? 'Y' : 'n')).join('')]));
+  assert.deepEqual(C.ROUTES, ['html', 'plain', 'nfkc', 'ignorable', 'upper', 'lower', 'nfkccf', 'space']);
+  assert.deepEqual(table, { case: 'YYYYnnnY', bold: 'YnYYYYYY', italic: 'YnYYYYYY', font: 'YnYYYYYY', zw: 'YYYnYYnY' });
+});
+
+test('生存性: 埋め込めない方式は ok=false で理由を返し、大小で後ろをそろえないと HTML のままでも読み違える', () => {
+  const r = C.survival('abc de', C.encode('Hi', '24').bits, '24');
+  assert.ok(r.methods.every((m) => !m.ok && m.error === 'short'));
+  const keep = C.survival('This is a Cover TEXT for Bacon.', C.encode('Hi', '24').bits, '24', { fillRest: false });
+  assert.equal(keep.methods[0].cells[0].survived, false);
+});
+
+test('経路: NFKC は全角を半角に、不可視の文字の除去はゼロ幅文字と ZWJ を消し、空白はまとめる', () => {
+  assert.equal(C.route('nfkc', 'ＡＢ'), 'AB');
+  assert.equal(C.route('ignorable', `a${C.ZW_A}b${C.ZW_B}c${String.fromCharCode(0x200d)}d`), 'abcd');
+  assert.equal(C.route('space', 'a  b\n\nc'), 'a b c');
+  assert.equal(C.route('plain', '<b>x</b>&amp;y'), 'x&amp;y');
+  assert.equal(C.route('html', '<b>x</b>'), '<b>x</b>');
+});
+
+test('二書体の練習: 0番は墓碑（答え WFF、16字）、ほかは練習の問題で、答えは隠した語。番号は回る', () => {
+  const tomb = C.labProblem(0);
+  assert.equal(tomb.cover, 'KNOWLEDGE IS POWER');
+  assert.equal(tomb.letters, 16);
+  assert.equal(tomb.answer, 'WFF');
+  assert.equal(tomb.tokens.filter((x) => !x.space && x.b).map((x) => x.ch).join(''), 'KOGIOE');
+  const answers = [];
+  for (let i = 1; i < C.LAB_COUNT; i++) {
+    const p = C.labProblem(i);
+    assert.ok(p.letters >= p.answer.length * 5, `${i}`);
+    assert.ok(/^[A-Z ]+$/.test(p.cover), p.cover);
+    answers.push(p.answer);
+  }
+  assert.deepEqual(answers, ['SPY', 'FLEE', 'HIDE', 'RUN', 'YES', 'HELP', 'GOLD', 'DAWN', 'NOON', 'SAFE', 'WAIT', 'KEY']);
+  assert.equal(C.labProblem(C.LAB_COUNT).index, 0);
+  assert.equal(C.labProblem(-1).index, C.LAB_COUNT - 1);
 });

@@ -16,7 +16,8 @@ const DOCS = {
     sec: { tech: '🔬 技術的な説明', limits: '⚠️ 注意と限界', refs: '🔗 参考', tree: '📁 ディレクトリー構造', about: '🛠️ このツールについて',
       security: '🔒 セキュリティ', uses: '🎯 活用例', friedman: '🪦 フリードマン夫妻の墓碑', about2: '🥓 ベーコン暗号とは' },
     head: { table: '| 字 | 24文字版 | 26文字版 |', examples: '| 平文 | 24文字版 | 26文字版 |', methods: '| 方式 | a | b | キャリア |',
-      readings: '| 読み方 | aになるもの | bになるもの |', samples: '| 例 | 1位の読み | 読み方 | 版 | ずれ |' },
+      readings: '| 読み方 | aになるもの | bになるもの |', samples: '| 例 | 1位の読み | 読み方 | 版 | ずれ |', survival: '| 経路 | 大小 |' },
+    lab: (n) => `練習は${n}問`, yes: '残る', no: '消える',
     words: (n) => `英単語の一覧（${n}語）`, thresholds: ['1以上', '0.5以上'],
     same: (x) => `（${x}と同じ）`,
     method: { 大小: 'case', ゼロ幅文字: 'zw' },
@@ -31,7 +32,8 @@ const DOCS = {
       about: '🛠️ About this tool', security: '🔒 Security', uses: '🎯 Use cases', friedman: "🪦 The Friedmans' gravestone",
       about2: "🥓 What is Bacon's cipher?" },
     head: { table: '| Letter | 24 letters | 26 letters |', examples: '| Plaintext | 24 letters | 26 letters |', methods: '| Method | a | b | Carrier |',
-      readings: '| Reading | Becomes a | Becomes b |', samples: '| Example | Top reading | Reading | Variant | Offset |' },
+      readings: '| Reading | Becomes a | Becomes b |', samples: '| Example | Top reading | Reading | Variant | Offset |', survival: '| Route | Case |' },
+    lab: (n) => `has ${n} problems`, yes: 'Survives', no: 'Lost',
     words: (n) => `list of English words (${n} words)`, thresholds: ['1 or more', '0.5 or more'],
     same: (x) => ` (same as ${x})`,
     method: { case: 'case', 'zero-width characters': 'zw' },
@@ -197,6 +199,23 @@ for (const [lang, d] of Object.entries(DOCS)) {
     assert.match(read('script.js'), /score >= 1 \? 'high' : score >= 0\.5 \? 'mid' : 'low'/);
   });
 
+  test(`${d.file}: 生存性の表は、想定シナリオ1の記事の文で計算部の survival と全セル同じ。書体名と練習の問題数も実装と同じ`, () => {
+    const NEWS = 'Construction work in the city is going well today. Many workers are busy at the new bridge, '
+      + 'and good weather is expected for tomorrow.';
+    const bits = C.encode('MEET AT NOON', '24').bits;
+    assert.ok(section(d.text, d.sec.uses).includes(C.embed(NEWS, bits, 'case').text));
+    const sv = C.survival(NEWS, bits, '24');
+    const rows = table(section(d.text, d.sec.tech), d.head.survival);
+    assert.equal(rows.length, C.ROUTES.length + 1);
+    rows.slice(1).forEach(([name, ...cells], i) => {
+      assert.equal(name, MESSAGES[lang][`route.${C.ROUTES[i]}`], C.ROUTES[i]);
+      assert.deepEqual(cells, sv.methods.map((m) => (m.cells[i].survived ? d.yes : d.no)), C.ROUTES[i]);
+    });
+    const tech = section(d.text, d.sec.tech);
+    assert.ok(tech.includes(`\`${C.FONT_A}\``) && tech.includes(`\`${C.FONT_B}\``));
+    assert.ok(tech.includes(d.lab(C.LAB_COUNT)), String(C.LAB_COUNT));
+  });
+
   test(`${d.file}: CSP・入力の上限は実装と同じ`, () => {
     const csp = read('index.html').match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/)[1];
     assert.ok(section(d.text, d.sec.security).includes(`\`${csp}\``));
@@ -227,18 +246,20 @@ test('参考文献の URL は日英で同じ', () => {
   assert.equal(urls(DOCS.ja).length, 15);
 });
 
-test('画像: 参照はすべて実在する。スクリーンショットは日本語版が assets/、英語版が assets/en/ の8枚。どこからも参照しない画像は置かない', () => {
+test('画像: 参照はすべて実在する。スクリーンショットは日本語版が assets/、英語版が assets/en/ の10枚。どこからも参照しない画像は置かない', () => {
   const refs = {};
   for (const [lang, d] of Object.entries(DOCS)) {
     refs[lang] = [...d.text.matchAll(/!\[[^\]]*\]\((assets\/[^)]+)\)/g)].map((m) => m[1]);
     for (const r of refs[lang]) assert.ok(fs.existsSync(path.join(ROOT, r)), r);
     const shots = refs[lang].filter((r) => /screenshot/.test(r));
-    assert.equal(shots.length, 8, lang);
+    assert.equal(shots.length, 10, lang);
     for (const r of shots) {
       assert.match(r, d.shots, r);
       assert.ok(fs.statSync(path.join(ROOT, r)).size <= 300 * 1024, r);
     }
-    for (const img of ['assets/bacon-1640-table.jpg', 'assets/bacon-1640-accommodation.jpg']) assert.ok(refs[lang].includes(img), `${lang} ${img}`);
+    for (const img of ['assets/bacon-1640-table.jpg', 'assets/bacon-1640-accommodation.jpg', 'assets/bacon-1640-biform.jpg']) {
+      assert.ok(refs[lang].includes(img), `${lang} ${img}`);
+    }
   }
   const used = new Set([...refs.ja, ...refs.en]);
   const files = (dir) => fs.readdirSync(path.join(ROOT, dir)).filter((f) => /\.(png|jpg)$/.test(f)).map((f) => `${dir}/${f}`);

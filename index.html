@@ -41,6 +41,8 @@
       data-i18n="tab.extract">抽出</button>
     <button type="button" class="tab-btn" role="tab" id="tab-solve" data-tab="solve" aria-controls="panel-solve" aria-selected="false" tabindex="-1"
       data-i18n="tab.solve">解析</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-biform" data-tab="biform" aria-controls="panel-biform" aria-selected="false" tabindex="-1"
+      data-i18n="tab.biform">二書体</button>
     <button type="button" class="tab-btn" role="tab" id="tab-table" data-tab="table" aria-controls="panel-table" aria-selected="false" tabindex="-1"
       data-i18n="tab.table">対応表</button>
   </nav>
@@ -196,6 +198,7 @@
                   <option value="case" data-i18n="method.case">大小（a＝小文字・b＝大文字）</option>
                   <option value="bold" data-i18n="method.bold">太字（b＝太字）</option>
                   <option value="italic" data-i18n="method.italic">斜体（b＝斜体）</option>
+                  <option value="font" data-i18n="method.font">二書体（a＝サンセリフ・b＝セリフ）</option>
                   <option value="zw" data-i18n="method.zw">ゼロ幅文字（a＝U+200B・b＝U+200C）</option>
                 </select>
               </div>
@@ -223,6 +226,18 @@
           </div>
         </div>
       </div>
+      <div class="card">
+        <h2 data-i18n="route.title">経路を通して比べる（生存性）</h2>
+        <p class="lead" data-i18n="route.lead">上のカバーテキストとメッセージを5つの方式で埋め込み、よくある処理（経路）を通したあとでも元のメッセージに戻るかを比べます。見た目の変化が小さい方式が、どの経路で消えるかを確かめられます。</p>
+        <div class="table-wrap">
+          <table id="route-table" class="route-table"></table>
+        </div>
+        <p id="route-status" class="hint" aria-live="polite"></p>
+        <details class="sidecard">
+          <summary data-i18n="route.examplesTitle">それぞれの経路が起きる場面の例</summary>
+          <ul id="route-examples" class="stats-list"></ul>
+        </details>
+      </div>
     </section>
 
     <!-- 抽出 -->
@@ -241,6 +256,7 @@
                   <option value="case" data-i18n="method.case">大小（a＝小文字・b＝大文字）</option>
                   <option value="bold" data-i18n="method.bold">太字（b＝太字）</option>
                   <option value="italic" data-i18n="method.italic">斜体（b＝斜体）</option>
+                  <option value="font" data-i18n="method.font">二書体（a＝サンセリフ・b＝セリフ）</option>
                   <option value="zw" data-i18n="method.zw">ゼロ幅文字（a＝U+200B・b＝U+200C）</option>
                 </select>
               </div>
@@ -275,7 +291,7 @@
     <section id="panel-solve" class="panel" role="tabpanel" aria-labelledby="tab-solve" hidden>
       <div class="card">
         <h2 data-i18n="solve.title">解析（読み方を総当たりする）</h2>
-        <p class="lead" data-i18n="solve.lead">怪しい文を貼ると、2通りに分かれるもの（a/bの記号、大文字と小文字、A〜MとN〜Z、単語の頭文字、子音と母音、2種類だけの記号、太字・斜体、ゼロ幅文字）を読み方として、24文字版・26文字版、aとbの入れ替え、0〜4ビットのずれを総当たりし、英語らしい順に並べます。</p>
+        <p class="lead" data-i18n="solve.lead">怪しい文を貼ると、2通りに分かれるもの（a/bの記号、大文字と小文字、A〜MとN〜Z、単語の頭文字、子音と母音、2種類だけの記号、太字・斜体・二書体、ゼロ幅文字）を読み方として、24文字版・26文字版、aとbの入れ替え、0〜4ビットのずれを総当たりし、英語らしい順に並べます。</p>
         <label class="field-label" for="solve-in" data-i18n="solve.inLabel">調べる文</label>
         <textarea id="solve-in" class="text-area" rows="6" spellcheck="false"></textarea>
         <div class="options">
@@ -300,6 +316,31 @@
           <summary data-i18n="solve.statsTitle">読み方ごとの統計</summary>
           <ul id="solve-stats" class="stats-list"></ul>
         </details>
+      </div>
+    </section>
+
+    <!-- 二書体 -->
+    <section id="panel-biform" class="panel" role="tabpanel" aria-labelledby="tab-biform" hidden>
+      <div class="card">
+        <h2 data-i18n="biform.title">二書体（字の形で読む）</h2>
+        <p class="lead" data-i18n="biform.lead">ベーコンは、どの字も2通りの形で書ける「二形のアルファベット」を用意し、隠したい文のaとbに合わせて、見せる文の字の形を1字ずつ選びました。下の表は1640年の英訳に載ったもので、各字の上のa・bが、その形の値です。</p>
+        <figure class="plate">
+          <img src="assets/bacon-1640-biform.jpg" width="900" height="1341" loading="lazy" data-i18n-attr="alt:biform.plateAlt"
+            alt="ベーコンの二形のアルファベット（1640年の英訳のp.267）">
+          <figcaption data-i18n="biform.plateCaption">ベーコンの二形のアルファベット（1640年の英訳のp.267、Internet Archive）。各字の上のa・bが、その形の値</figcaption>
+        </figure>
+        <h3 id="lab-heading" data-i18n="biform.practice">字の形を見分ける練習</h3>
+        <p class="lead" data-i18n="biform.practiceLead">セリフ（字の端の小さな飾り）のある字がb、ない字がaです。bだと思う字を押してください。押した字の値から、24文字版で読みます。この練習は、字の形を目で見分けます。</p>
+        <p id="lab-title" class="lab-title"></p>
+        <div id="lab-letters" class="lab-letters" role="group" aria-labelledby="lab-title"></div>
+        <label class="field-label" for="lab-bits" data-i18n="lab.bitsLabel">あなたの判定（a/b）</label>
+        <textarea id="lab-bits" class="text-area mono" rows="2" readonly spellcheck="false"></textarea>
+        <div class="actions">
+          <button type="button" id="btn-lab-check" class="btn" data-i18n="lab.check">答え合わせ</button>
+          <button type="button" id="btn-lab-reset" class="btn ghost" data-i18n="lab.reset">全部aに戻す</button>
+          <button type="button" id="btn-lab-next" class="btn ghost" data-i18n="lab.next">次の問題</button>
+        </div>
+        <div id="lab-status" class="status" aria-live="polite"></div>
       </div>
     </section>
 

@@ -415,6 +415,60 @@ h1 {
 .zw-a { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--field-border); }
 .zw-b { background: var(--accent-weak); color: var(--accent-text); border: 1px solid var(--accent); }
 
+/* ========== Solve ========== */
+.results {
+  margin: 12px 0 0;
+  padding-left: 2em;
+}
+
+.result {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.result-text {
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.result-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.result .btn { margin-top: 8px; }
+
+.conf {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.conf-high { background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-text); }
+.conf-mid { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-text); }
+.conf-low { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--field-border); }
+
+.stats-list {
+  margin: 8px 0 0;
+  padding-left: 1.4em;
+}
+
 /* ========== Table ========== */
 .table-grid {
   display: grid;

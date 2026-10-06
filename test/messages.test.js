@@ -43,6 +43,9 @@ test('画面のスクリプトが使う文言のキーは、すべて辞書に�
   assert.ok(keys.size >= 25, String(keys.size));
   for (const m of C.METHODS) keys.add(`embed.hint.${m}`).add(`method.${m}`);
   for (const v of C.VARIANTS) keys.add(`variant.${v}`);
+  for (const r of C.READINGS) keys.add(`reading.${r}`);
+  for (const id of C.SAMPLE_IDS) keys.add(`sample.${id}`);
+  for (const c of ['high', 'mid', 'low']) keys.add(`solve.conf.${c}`);
   for (const k of keys) for (const lang of ['ja', 'en']) assert.ok(MESSAGES[lang][k] !== undefined, `${lang} ${k}`);
 });
 

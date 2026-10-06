@@ -75,7 +75,7 @@
   const tooLong = (...values) => values.some((v) => v.length > C.MAX_INPUT);
 
   // ===== タブ（WAI-ARIA のタブ。矢印キー・Home・End で移る） =====
-  const TABS = ['encode', 'decode', 'embed', 'extract', 'table'];
+  const TABS = ['encode', 'decode', 'embed', 'extract', 'solve', 'table'];
   function selectTab(name, focus = false) {
     for (const k of TABS) {
       const on = k === name;
@@ -123,28 +123,99 @@
   function renderDecode() {
     const input = $('dec-in').value;
     const variant = $('dec-variant').value;
+    const keep = $('dec-keep').checked;
+    $('dec-skip').disabled = keep;
     const clear = (item) => {
-      $('dec-out').value = '';
+      $('dec-out').value = $('dec-annot').value = '';
       $('dec-steps').replaceChildren();
       $('btn-dec-copy').disabled = $('btn-dec-download').disabled = true;
       show('dec-status', [item]);
     };
     if (tooLong(input)) return clear({ key: 'input.tooLong', vars: { max: C.MAX_INPUT }, level: 'warn' });
-    const p = C.parseCipher(input, { strict: !$('dec-skip').checked });
-    if (!p.ok) return clear({ key: 'decode.stopped', vars: { ch: visible(p.first.ch), pos: p.first.index }, level: 'warn' });
-    const d = C.decode(p.bits, variant);
-    $('dec-out').value = d.text;
-    $('dec-steps').replaceChildren(...d.steps.map((s) => el('li', null, `${C.formatBits(s.code, 'ab')} → ${s.label || '?'}`)));
-    $('btn-dec-copy').disabled = $('btn-dec-download').disabled = !d.text;
-    const items = [p.bits
-      ? { key: 'decode.stat', vars: { bits: p.bits.length, letters: d.steps.length, variant: t(`variant.${variant}`) }, level: 'ok' }
+    const r = C.readCipher(input, variant, { strict: !$('dec-skip').checked, offset: $('dec-offset').value, invert: $('dec-invert').checked, keep });
+    if (!r.ok) return clear({ key: 'decode.stopped', vars: { ch: visible(r.first.ch), pos: r.first.index }, level: 'warn' });
+    $('dec-out').value = r.text;
+    $('dec-annot').value = r.annotated;
+    $('dec-steps').replaceChildren(...r.steps.map((s) => el('li', null, `${C.formatBits(s.code, 'ab')} → ${s.label || '?'}`)));
+    $('btn-dec-copy').disabled = $('btn-dec-download').disabled = !r.text;
+    const items = [r.bits
+      ? { key: 'decode.stat', vars: { bits: r.bits, letters: r.letters, variant: t(`variant.${variant}`) }, level: 'ok' }
       : { key: 'decode.empty' }];
-    if (p.invalid) items.push({ key: 'decode.skipped', vars: { n: p.invalid, ch: visible(p.first.ch), pos: p.first.index }, level: 'warn' });
-    if (d.remainder) items.push({ key: 'decode.remainder', vars: { n: d.remainder }, level: 'warn' });
-    if (d.unknown) {
-      items.push({ key: 'decode.unknown', vars: { n: d.unknown, variant: t(`variant.${variant}`), codes: range(C.unusedCodes(variant)) }, level: 'warn' });
+    if (r.offset) items.push({ key: 'decode.shifted', vars: { n: r.offset } });
+    if ($('dec-invert').checked) items.push({ key: 'decode.inverted' });
+    if (r.kept) items.push({ key: 'decode.kept', vars: { n: r.kept } });
+    if (r.invalid) items.push({ key: 'decode.skipped', vars: { n: r.invalid, ch: visible(r.first.ch), pos: r.first.index }, level: 'warn' });
+    if (r.remainder) items.push({ key: 'decode.remainder', vars: { n: r.remainder }, level: 'warn' });
+    if (r.unknown) {
+      items.push({ key: 'decode.unknown', vars: { n: r.unknown, variant: t(`variant.${variant}`), codes: range(C.unusedCodes(variant)) }, level: 'warn' });
     }
+    if (r.resolved !== r.text) items.push({ key: 'decode.resolved', vars: { text: r.resolved } });
     show('dec-status', items);
+  }
+
+  // ===== 解析（読み方の総当たり） =====
+  const shorten = (s, n = 120) => ([...s].length > n ? `${[...s].slice(0, n).join('')}…` : s);
+  const readingName = (x) => t(`reading.${x.reading || x.id}`, { a: x.a ? visible(x.a) : '', b: x.b ? visible(x.b) : '' });
+  const confidence = (score) => (score >= 1 ? 'high' : score >= 0.5 ? 'mid' : 'low');
+
+  // 候補の暗号文を復号タブに入れる。ずれの分は先頭に分けて書き、メッセージの後ろの余り（aaaaa の組）は入れない
+  function openInDecode(c) {
+    const used = c.bits.slice(0, c.offset + 5 * [...c.text].length);
+    const head = used.slice(0, c.offset);
+    $('dec-in').value = (head ? `${C.formatBits(head, 'ab')} ` : '') + C.formatBits(used.slice(c.offset), 'ab', '5');
+    $('dec-variant').value = c.variant;
+    $('dec-offset').value = String(c.offset);
+    $('dec-invert').checked = c.invert;
+    $('dec-keep').checked = false;
+    $('dec-skip').checked = true;
+    selectTab('decode', true);
+    renderDecode();
+    note('dec-status', { key: 'solve.opened' });
+  }
+
+  function candidateItem(c) {
+    const li = el('li', 'result');
+    const conf = confidence(c.score);
+    const head = el('p', 'result-head');
+    head.append(el('span', `conf conf-${conf}`, t(`solve.conf.${conf}`)), el('span', 'mono result-text', shorten(c.text)));
+    li.append(head);
+    li.append(el('p', 'result-meta', t('solve.meta', {
+      reading: readingName(c), variant: t(`variant.${c.variant}`), invert: t(c.invert ? 'invert.on' : 'invert.off'), offset: c.offset
+    })));
+    li.append(el('p', 'result-meta', t('solve.evidence', {
+      score: c.score.toFixed(2), english: c.english.toFixed(2), covered: c.covered, letters: c.letters, unknown: c.unknown
+    })));
+    if (c.words.length) li.append(el('p', 'result-meta', t('solve.words', { words: [...new Set(c.words)].join(t('ui.listSep')) })));
+    if (c.resolved !== c.text) li.append(el('p', 'result-meta', t('solve.resolved', { text: shorten(c.resolved) })));
+    const btn = el('button', 'btn ghost', t('solve.open'));
+    btn.type = 'button';
+    btn.addEventListener('click', () => openInDecode(c));
+    li.append(btn);
+    return li;
+  }
+
+  function renderSolve() {
+    const raw = $('solve-in').value;
+    const list = $('solve-results');
+    const stats = $('solve-stats');
+    const off = (item) => {
+      list.replaceChildren();
+      stats.replaceChildren();
+      show('solve-status', [item]);
+    };
+    if (tooLong(raw)) return off({ key: 'input.tooLong', vars: { max: C.MAX_INPUT }, level: 'warn' });
+    if (!raw.trim()) return off({ key: 'solve.empty' });
+    const r = C.solve(raw, { limit: 5 });
+    stats.replaceChildren(...r.readings.map((x) => el('li', null, t('solve.statLine', {
+      reading: readingName(x), carriers: x.carriers, share: Math.round(x.share * 100)
+    }))));
+    if (!r.candidates.length) {
+      list.replaceChildren();
+      show('solve-status', [{ key: 'solve.none', level: 'warn' }]);
+      return;
+    }
+    list.replaceChildren(...r.candidates.map(candidateItem));
+    show('solve-status', [{ key: 'solve.stat', vars: { readings: r.readings.length, tried: r.tried, shown: r.candidates.length }, level: 'ok' }]);
   }
 
   // ===== 埋め込み =====
@@ -284,6 +355,7 @@
     renderDecode();
     renderEmbed();
     renderExtract();
+    renderSolve();
     renderTable();
   };
 
@@ -292,7 +364,8 @@
   on(['enc-plain'], 'input', renderEncode);
   on(['enc-variant', 'enc-format', 'enc-group'], 'change', renderEncode);
   on(['dec-in'], 'input', renderDecode);
-  on(['dec-variant', 'dec-skip'], 'change', renderDecode);
+  on(['dec-variant', 'dec-skip', 'dec-keep', 'dec-invert', 'dec-offset'], 'change', renderDecode);
+  on(['solve-in'], 'input', renderSolve);
   on(['embed-cover', 'embed-msg'], 'input', renderEmbed);
   on(['embed-kind', 'embed-variant', 'embed-method', 'embed-fill', 'embed-reveal'], 'change', renderEmbed);
   on(['extract-in'], 'input', renderExtract);
@@ -319,6 +392,10 @@
     note('extract-status', { key: 'embed.moved' });
   });
   $('btn-extract-copy').addEventListener('click', () => copy($('extract-msg').value, 'extract-status'));
+  $('btn-solve-sample').addEventListener('click', () => {
+    $('solve-in').value = C.makeSample($('solve-sample').value);
+    renderSolve();
+  });
 
   $('btn-lang').addEventListener('click', () => {
     I.set(I.lang === 'ja' ? 'en' : 'ja');

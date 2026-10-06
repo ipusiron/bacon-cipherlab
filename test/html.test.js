@@ -7,7 +7,7 @@ const { MESSAGES, t } = load('js/messages.js').BaconMessages;
 const { parseVars } = load('js/i18n.js').BaconI18n;
 const SCRIPTS = ['script.js', 'js/bacon-core.js', 'js/messages.js', 'js/i18n.js', 'js/theme.js', 'js/theme-init.js'];
 const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-const TABS = ['encode', 'decode', 'embed', 'extract', 'table'];
+const TABS = ['encode', 'decode', 'embed', 'extract', 'solve', 'table'];
 
 test('CSP はスクリプト・スタイルを同じ場所のファイルだけに限り、unsafe-inline と外部の通信を許さない', () => {
   const csp = html.match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/)[1];
@@ -50,13 +50,14 @@ test('ボタンは type="button"。入力欄には label があり、暗号文�
   for (const m of html.matchAll(/<(textarea|select|input) [^>]*id="([^"]+)"/g)) {
     assert.match(html, new RegExp(`<label [^>]*for="${m[2]}"`), m[2]);
   }
-  for (const id of ['enc-plain', 'enc-out', 'dec-in', 'dec-out', 'embed-cover', 'embed-msg', 'extract-in', 'extract-msg', 'extract-bits']) {
+  for (const id of ['enc-plain', 'enc-out', 'dec-in', 'dec-out', 'dec-annot', 'embed-cover', 'embed-msg', 'extract-in', 'extract-msg', 'extract-bits',
+    'solve-in']) {
     assert.match(html, new RegExp(`id="${id}"[^>]*spellcheck="false"`), id);
   }
 });
 
 test('結果の知らせの欄には aria-live がある', () => {
-  for (const id of ['enc-status', 'dec-status', 'embed-status', 'embed-hint', 'extract-status', 'table-status']) {
+  for (const id of ['enc-status', 'dec-status', 'embed-status', 'embed-hint', 'extract-status', 'solve-status', 'table-status']) {
     assert.match(html, new RegExp(`id="${id}"[^>]*aria-live="polite"`), id);
   }
 });
@@ -139,4 +140,12 @@ test('コピーは失敗を知らせる（then の第2引数と catch）', () =>
   assert.match(src, /navigator\.clipboard\.writeText\(text\)\.then\(\(\) => note\(statusId, okItem\), fail\)/);
   assert.match(src, /catch \{\s*fail\(\);/);
   assert.equal((src.match(/navigator\.clipboard\.writeText\(/g) || []).length, 1);
+});
+
+test('解析タブの例の選択肢は計算部の例と同じ順。復号タブのずれは0〜4', () => {
+  const C = load('js/bacon-core.js').BaconCore;
+  const sel = html.match(/<select id="solve-sample"[\s\S]*?<\/select>/)[0];
+  assert.deepEqual([...sel.matchAll(/value="([^"]+)"/g)].map((m) => m[1]), C.SAMPLE_IDS);
+  const off = html.match(/<select id="dec-offset"[\s\S]*?<\/select>/)[0];
+  assert.deepEqual([...off.matchAll(/value="([^"]+)"/g)].map((m) => m[1]), ['0', '1', '2', '3', '4']);
 });

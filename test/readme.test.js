@@ -16,7 +16,7 @@ const DOCS = {
     sec: { tech: '🔬 技術的な説明', limits: '⚠️ 注意と限界', refs: '🔗 参考', tree: '📁 ディレクトリー構造', about: '🛠️ このツールについて',
       security: '🔒 セキュリティ', uses: '🎯 活用例', friedman: '🪦 フリードマン夫妻の墓碑', about2: '🥓 ベーコン暗号とは' },
     head: { table: '| 字 | 24文字版 | 26文字版 |', examples: '| 平文 | 24文字版 | 26文字版 |', methods: '| 方式 | a | b | キャリア |',
-      readings: '| 読み方 | aになるもの | bになるもの |', samples: '| 例 | 1位の読み | 読み方 | 版 | ずれ |', survival: '| 経路 | 大小 |' },
+      readings: '| 読み方 | aになるもの | bになるもの |', samples: '| 例 | 1位の読み | 読み方 | 版 | ずれ |', survival: '| 経路 | 大小 |', schemes: '| 方式 | 使う見えない文字 |' },
     lab: (n) => `練習は${n}問`, yes: '残る', no: '消える',
     words: (n) => `英単語の一覧（${n}語）`, thresholds: ['1以上', '0.5以上'],
     same: (x) => `（${x}と同じ）`,
@@ -32,7 +32,8 @@ const DOCS = {
       about: '🛠️ About this tool', security: '🔒 Security', uses: '🎯 Use cases', friedman: "🪦 The Friedmans' gravestone",
       about2: "🥓 What is Bacon's cipher?" },
     head: { table: '| Letter | 24 letters | 26 letters |', examples: '| Plaintext | 24 letters | 26 letters |', methods: '| Method | a | b | Carrier |',
-      readings: '| Reading | Becomes a | Becomes b |', samples: '| Example | Top reading | Reading | Variant | Offset |', survival: '| Route | Case |' },
+      readings: '| Reading | Becomes a | Becomes b |', samples: '| Example | Top reading | Reading | Variant | Offset |',
+      survival: '| Route | Case |', schemes: '| Method | Invisible characters |' },
     lab: (n) => `has ${n} problems`, yes: 'Survives', no: 'Lost',
     words: (n) => `list of English words (${n} words)`, thresholds: ['1 or more', '0.5 or more'],
     same: (x) => ` (same as ${x})`,
@@ -216,6 +217,15 @@ for (const [lang, d] of Object.entries(DOCS)) {
     assert.ok(tech.includes(d.lab(C.LAB_COUNT)), String(C.LAB_COUNT));
   });
 
+  test(`${d.file}: ほかのツールのゼロ幅方式の表は5行で、例の方式はどれも表にあり、リンクの上限は実装と同じ`, () => {
+    const tech = section(d.text, d.sec.tech);
+    const rows = table(tech, d.head.schemes);
+    assert.deepEqual(rows.map((r) => r[0].split(' ')[0]), ['Bacon', 'Steganographr', '330k', 'StegCloak', lang === 'ja' ? 'タグ文字' : 'Tag']);
+    for (const id of C.ZW_SAMPLE_IDS) assert.ok(C.zwSchemes(C.makeZwSample(id)).schemes.some((x) => x.likely), id);
+    assert.ok(tech.includes(C.WSI_MAX_URL.toLocaleString('en-US')));
+    assert.ok(tech.includes('source=bacon-cipherlab') && tech.includes('#text='));
+  });
+
   test(`${d.file}: CSP・入力の上限は実装と同じ`, () => {
     const csp = read('index.html').match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/)[1];
     assert.ok(section(d.text, d.sec.security).includes(`\`${csp}\``));
@@ -243,16 +253,16 @@ for (const [lang, d] of Object.entries(DOCS)) {
 test('参考文献の URL は日英で同じ', () => {
   const urls = (d) => [...section(d.text, d.sec.refs).matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
   assert.deepEqual(urls(DOCS.en), urls(DOCS.ja));
-  assert.equal(urls(DOCS.ja).length, 15);
+  assert.equal(urls(DOCS.ja).length, 18);
 });
 
-test('画像: 参照はすべて実在する。スクリーンショットは日本語版が assets/、英語版が assets/en/ の10枚。どこからも参照しない画像は置かない', () => {
+test('画像: 参照はすべて実在する。スクリーンショットは日本語版が assets/、英語版が assets/en/ の11枚。どこからも参照しない画像は置かない', () => {
   const refs = {};
   for (const [lang, d] of Object.entries(DOCS)) {
     refs[lang] = [...d.text.matchAll(/!\[[^\]]*\]\((assets\/[^)]+)\)/g)].map((m) => m[1]);
     for (const r of refs[lang]) assert.ok(fs.existsSync(path.join(ROOT, r)), r);
     const shots = refs[lang].filter((r) => /screenshot/.test(r));
-    assert.equal(shots.length, 10, lang);
+    assert.equal(shots.length, 11, lang);
     for (const r of shots) {
       assert.match(r, d.shots, r);
       assert.ok(fs.statSync(path.join(ROOT, r)).size <= 300 * 1024, r);

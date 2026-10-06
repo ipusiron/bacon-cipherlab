@@ -48,6 +48,9 @@ test('画面のスクリプトが使う文言のキーは、すべて辞書に�
   for (const r of C.READINGS) keys.add(`reading.${r}`);
   for (const id of C.SAMPLE_IDS) keys.add(`sample.${id}`);
   for (const c of ['high', 'mid', 'low']) keys.add(`solve.conf.${c}`);
+  for (const id of ['bacon', 'steganographr', 'k330', 'stegcloak', 'tags']) keys.add(`scheme.${id}`);
+  for (const id of C.ZW_SAMPLE_IDS) keys.add(`zwSample.${id}`);
+  keys.add('match.likely').add('match.possible');
   for (const k of keys) for (const lang of ['ja', 'en']) assert.ok(MESSAGES[lang][k] !== undefined, `${lang} ${k}`);
 });
 

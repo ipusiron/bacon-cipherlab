@@ -58,7 +58,7 @@ test('ボタンは type="button"。入力欄には label があり、暗号文�
 
 test('結果の知らせの欄には aria-live がある', () => {
   for (const id of ['enc-status', 'dec-status', 'embed-status', 'embed-hint', 'extract-status', 'solve-status', 'lab-status', 'route-status',
-    'table-status']) {
+    'zw-status', 'table-status']) {
     assert.match(html, new RegExp(`id="${id}"[^>]*aria-live="polite"`), id);
   }
 });
@@ -167,3 +167,12 @@ test('画面の画像は assets/ にあり、大きさと代替テキストを�
   assert.ok(css.includes(`.form-a { font-family: ${C.FONT_A}; }`));
   assert.ok(css.includes(`.form-b { font-family: ${C.FONT_B}; }`));
 });
+
+test('見えない文字の例の選択肢は計算部と同じ順。WeirdString Inspector へのリンクは2つで、既定の行き先は Day023 のページ', () => {
+  const C = load('js/bacon-core.js').BaconCore;
+  const sel = html.match(/<select id="zw-sample"[\s\S]*?<\/select>/)[0];
+  assert.deepEqual([...sel.matchAll(/value="([^"]+)"/g)].map((m) => m[1]), C.ZW_SAMPLE_IDS);
+  const links = [...html.matchAll(/<a id="(zw-wsi|extract-wsi)" [^>]*href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+  assert.deepEqual(links, [['extract-wsi', C.WSI_URL], ['zw-wsi', C.WSI_URL]]);
+});
+

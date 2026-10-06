@@ -195,7 +195,57 @@
     return li;
   }
 
+  // ===== 見えない文字（ほかのツールのゼロ幅方式）と WeirdString Inspector へのリンク =====
+  // リンクにできないとき（長すぎる・孤立サロゲート）は href を外して無効にし、理由を title と戻り値で返す
+  function setWsiLink(a, text) {
+    const r = C.wsiLink(text);
+    if (r.ok) {
+      a.href = r.url;
+      a.removeAttribute('aria-disabled');
+      a.removeAttribute('title');
+    } else {
+      a.removeAttribute('href');
+      a.setAttribute('aria-disabled', 'true');
+      a.title = t(r.error ? 'zw.badText' : 'zw.tooLong');
+    }
+    return r;
+  }
+
+  function renderZw() {
+    const raw = $('solve-in').value;
+    const link = setWsiLink($('zw-wsi'), raw);
+    if (!raw) {
+      $('zw-counts').replaceChildren();
+      $('zw-schemes').replaceChildren();
+      show('zw-status', [{ key: 'zw.empty' }]);
+      return;
+    }
+    const r = C.zwSchemes(raw);
+    const lines = r.list.map((x) => el('li', null, x.name ? t('zw.count', { name: x.name, cp: x.cp, n: x.n }) : t('zw.unnamed', { cp: x.cp, n: x.n })));
+    if (r.tags) lines.push(el('li', null, t('zw.tags', { n: r.tags })));
+    $('zw-counts').replaceChildren(...lines);
+    $('zw-schemes').replaceChildren(...r.schemes.map((x) => {
+      const li = el('li', 'result');
+      const head = el('p', 'result-head');
+      const match = el('span', `conf conf-${x.likely ? 'high' : 'mid'}`, t(x.likely ? 'match.likely' : 'match.possible'));
+      head.append(match, el('span', 'result-label', t(`scheme.${x.id}`)));
+      li.append(head);
+      let read;
+      if (x.decoded === null) read = t('zw.noDecode');
+      else if (x.id === 'bacon') read = t('zw.decodedBacon', { variant: t(`variant.${x.variant}`), text: shorten(x.decoded) });
+      else read = t('zw.decoded', { text: shorten(x.decoded) });
+      li.append(el('p', 'result-meta mono', read));
+      return li;
+    }));
+    const items = [r.total ? { key: 'zw.total', vars: { n: r.total }, level: 'ok' } : { key: 'zw.none' }];
+    if (r.total && !r.schemes.length) items.push({ key: 'zw.schemesNone' });
+    if (r.emojiZwj) items.push({ key: 'zw.emojiZwj', vars: { n: r.emojiZwj } });
+    if (!link.ok) items.push({ key: link.error ? 'zw.badText' : 'zw.tooLong', level: 'warn' });
+    show('zw-status', items);
+  }
+
   function renderSolve() {
+    renderZw();
     const raw = $('solve-in').value;
     const list = $('solve-results');
     const stats = $('solve-stats');
@@ -297,6 +347,7 @@
   function renderExtract() {
     const raw = $('extract-in').value;
     const method = $('extract-method').value;
+    setWsiLink($('extract-wsi'), raw);
     const variant = $('extract-variant').value;
     if (tooLong(raw)) {
       $('extract-msg').value = $('extract-bits').value = '';
@@ -484,6 +535,10 @@
     note('extract-status', { key: 'embed.moved' });
   });
   $('btn-extract-copy').addEventListener('click', () => copy($('extract-msg').value, 'extract-status'));
+  $('btn-zw-sample').addEventListener('click', () => {
+    $('solve-in').value = C.makeZwSample($('zw-sample').value);
+    renderSolve();
+  });
   $('btn-solve-sample').addEventListener('click', () => {
     $('solve-in').value = C.makeSample($('solve-sample').value);
     renderSolve();

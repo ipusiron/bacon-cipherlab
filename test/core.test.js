@@ -431,3 +431,70 @@ test('二書体の練習: 0番は墓碑（答え WFF、16字）、ほかは練�
   assert.equal(C.labProblem(C.LAB_COUNT).index, 0);
   assert.equal(C.labProblem(-1).index, C.LAB_COUNT - 1);
 });
+
+// ===== 第4弾: 見えない文字とほかのツールのゼロ幅方式 =====
+const fromCp = (...xs) => xs.map((x) => String.fromCodePoint(x)).join('');
+
+test('見えない文字: 名前つきで数え、絵文字をつなぐ ZWJ と異体字セレクターは数えず、タグ文字はまとめる', () => {
+  const text = `a${fromCp(0x200b)}b${fromCp(0x200b, 0x2060, 0x3164)} ${fromCp(0x1f468, 0x200d, 0x1f469)} ${fromCp(0x2764, 0xfe0f, 0x200d, 0x1f525)}`
+    + `x${fromCp(0x200d)}y${fromCp(0xe0041, 0xe0042)}`;
+  const r = C.invisibles(text);
+  assert.deepEqual(r.list.map((x) => [x.cp, x.name, x.n]), [
+    ['U+200B', 'ZERO WIDTH SPACE', 2], ['U+200D', 'ZERO WIDTH JOINER', 1], ['U+2060', 'WORD JOINER', 1], ['U+3164', null, 1]
+  ]);
+  assert.equal(r.emojiZwj, 2);
+  assert.equal(r.tags, 2);
+  assert.equal(r.total, 7);
+  assert.deepEqual(C.invisibles('plain text').list, []);
+});
+
+test('ほかのツールの方式: 例はどれも、その方式だけが「可能性が高い」として出て、隠した文を読める', () => {
+  const want = {
+    bacon: ['bacon', 'MEETATNOON'], steganographr: ['steganographr', 'Meet at noon'], k330: ['k330', 'Meet at noon'], tags: ['tags', 'SECRET NOTE']
+  };
+  for (const id of C.ZW_SAMPLE_IDS) {
+    const r = C.zwSchemes(C.makeZwSample(id));
+    const likely = r.schemes.filter((x) => x.likely);
+    assert.deepEqual(likely.map((x) => [x.id, x.decoded]), [want[id]], id);
+  }
+  assert.equal(C.zwSchemes(C.makeZwSample('bacon')).schemes[0].variant, '24');
+});
+
+test('Steganographr: U+FEFF で挟んだ中を U+2060 で区切り、バイトの2進数（桁埋めなし）を UTF-8 で読む', () => {
+  const enc = (str) => [...new TextEncoder().encode(str)].map((b) => b.toString(2).replace(/0/g, C.ZW_A).replace(/1/g, C.ZW_B))
+    .join(fromCp(0x2060));
+  assert.equal(C.decodeSteganographr(`Hi ${fromCp(0xfeff)}${enc('秘密 OK')}${fromCp(0xfeff)} there`), '秘密 OK');
+  assert.equal(C.decodeSteganographr('no boundary'), null);
+  assert.equal(C.decodeSteganographr(`${fromCp(0xfeff)}abc${fromCp(0xfeff)}`), null);
+  assert.equal(C.decodeSteganographr(`${fromCp(0xfeff)}${fromCp(0xfeff)}`), null);
+});
+
+test('330k: 既定の4文字（U+200C・U+200D・U+202C・U+FEFF＝0〜3）で、UTF-16 の1単位を4進8桁（上の桁から）で読む', () => {
+  const K = [0x200c, 0x200d, 0x202c, 0xfeff].map((c) => String.fromCharCode(c));
+  const enc = (str) => [...str].map((x) => x.charCodeAt(0).toString(4).padStart(8, '0').replace(/[0-3]/g, (d) => K[d])).join('');
+  assert.deepEqual(C.decode330k(`a${enc('B')}c${enc('ON')}`), { text: 'BON', remainder: 0 });
+  assert.equal(C.decode330k(enc('X').slice(0, 7)), null);
+  assert.deepEqual(C.decode330k(enc('XY').slice(0, 12)), { text: 'X', remainder: 4 });
+});
+
+test('StegCloak（U+2061〜U+2064 を含む）は読まずに識別だけする。ほかの文字が混ざれば「可能性がある」に下げる', () => {
+  const sc = `Hello ${fromCp(0x200c, 0x2061, 0x2062, 0x200d, 0x2063, 0x2064, 0x200c)}world`;
+  assert.deepEqual(C.zwSchemes(sc).schemes.map((x) => [x.id, x.likely, x.decoded]), [['stegcloak', true, null]]);
+  assert.deepEqual(C.zwSchemes(`${sc}${fromCp(0x200b)}`).schemes.map((x) => [x.id, x.likely]), [['stegcloak', false]]);
+});
+
+test('ベーコン暗号のゼロ幅方式は U+200B（a）を含むときだけ候補にする。見えない文字がなければ方式も出ない', () => {
+  assert.deepEqual(C.zwSchemes(`x${fromCp(0x200c).repeat(10)}`).schemes, []);
+  assert.deepEqual(C.zwSchemes('plain').schemes, []);
+});
+
+test('WeirdString Inspector へのリンク: #text= に URL エンコードして source を付ける。長すぎる文と孤立サロゲートは渡さない', () => {
+  assert.equal(C.wsiLink('a b+&#').url, `${C.WSI_URL}#text=a%20b%2B%26%23&source=bacon-cipherlab`);
+  assert.equal(C.WSI_URL, 'https://ipusiron.github.io/weirdstring-inspector/');
+  const prefix = `${C.WSI_URL}#text=&source=bacon-cipherlab`.length;
+  assert.equal(C.wsiLink('x'.repeat(C.WSI_MAX_URL - prefix)).ok, true);
+  assert.equal(C.wsiLink('x'.repeat(C.WSI_MAX_URL - prefix + 1)).ok, false);
+  const lone = C.wsiLink(`a${String.fromCharCode(0xd800)}`);
+  assert.deepEqual([lone.ok, lone.error], [false, 'encode']);
+});
+

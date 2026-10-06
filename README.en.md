@@ -10,7 +10,7 @@ English · [日本語](README.md)
 
 **Day055 - 100 Security Tools with Generative AI**
 
-Bacon CipherLab is a tool for trying Bacon's cipher. Each letter becomes a code of five a/b symbols, and the sequence is then hidden in the shapes of the letters of a text (uppercase and lowercase, bold, italic) or in invisible zero-width characters. You can follow the whole round trip of conversion, embedding and extraction with both the 24-letter table Bacon published in 1623 and the later 26-letter variant. Decryption that copes with offsets, swapped a and b and misread codes, and a Solve tab that tries every reading, let you examine texts even when you do not know how they were hidden. A Biform tab tries Bacon's bi-formed alphabet with two typefaces, and a table compares which methods survive common processing. Nothing is sent over the network.
+Bacon CipherLab is a tool for trying Bacon's cipher. Each letter becomes a code of five a/b symbols, and the sequence is then hidden in the shapes of the letters of a text (uppercase and lowercase, bold, italic) or in invisible zero-width characters. You can follow the whole round trip of conversion, embedding and extraction with both the 24-letter table Bacon published in 1623 and the later 26-letter variant. Decryption that copes with offsets, swapped a and b and misread codes, and a Solve tab that tries every reading, let you examine texts even when you do not know how they were hidden. A Biform tab tries Bacon's bi-formed alphabet with two typefaces, and a table compares which methods survive common processing. It can also count invisible characters, tell the methods of other tools (Steganographr, 330k, StegCloak) and tag characters apart, and pass the text to WeirdString Inspector. Nothing is sent over the network.
 
 ---
 
@@ -63,6 +63,10 @@ Try it directly in your browser.
 >![The table comparing five methods through eight routes](assets/en/screenshot10.png)
 >
 >*The table comparing five methods through eight routes*
+
+>![The invisible-character card identifying and reading the Steganographr method](assets/en/screenshot11.png)
+>
+>*The invisible-character card identifying and reading the Steganographr method*
 
 ---
 
@@ -140,6 +144,8 @@ The case, bold, italic and two-typeface methods of this tool are an easy modern 
 - Tries every reading × variant (24 or 26 letters) × a/b swap × offset (0 to 4 bits), and lists the five best with the reading, variant, offset and score breakdown
 - "Open in the Decrypt tab" puts a candidate's ciphertext and settings into the Decrypt tab to check it
 - Examples (a CTF challenge text, a ciphertext shifted by 2 bits, two kinds of emoji, first letters of words, zero-width characters) can be inserted from the page
+- "Examine invisible characters" counts invisible characters by name and tells which tool's method made the text (this tool, Steganographr, 330k, StegCloak, tag characters). If the method can be read, the hidden text is shown
+- The text can be passed to WeirdString Inspector (Day023) after the # in the URL (from the Solve and Extract tabs)
 
 ### Biform
 
@@ -313,6 +319,22 @@ The NFKC_CF-like route is an approximation that applies NFKC, removal of invisib
 
 Zero-width characters do not change the look, but disappear when invisible characters are removed. Two typefaces differ only slightly, but disappear in plain text. Case survives plain text, but disappears when case is normalized.
 
+### Zero-width methods of other tools
+
+"Examine invisible characters" in the Solve tab counts invisible characters with their names (Unicode UCD 18.0.0) and tells the method apart from the set of characters used. If only that method's characters are used, it is shown as "Likely"; if other characters are mixed in, as "Possible". ZWJs that join emoji and variation selectors are not counted. The methods follow each tool's source.
+
+| Method | Invisible characters | Encoding | How this tool handles it |
+|---|---|---|---|
+| Bacon CipherLab | U+200B (a), U+200C (b) | Five bits per letter of Bacon's cipher, one after each character | Reads it with the 24- and 26-letter variants and shows the more English-like one |
+| Steganographr | U+200B (0), U+200C (1), U+2060 (separator), U+FEFF (boundaries) | Each UTF-8 byte in binary (no padding), in one place in the middle of the text | Reads it |
+| 330k Unicode Steganography | By default U+200C, U+200D, U+202C, U+FEFF (0 to 3 in that order) | Each UTF-16 unit as eight base-4 digits, scattered between runs of text (order kept) | Reads it only with the default four characters |
+| StegCloak | U+200C, U+200D, U+2061 to U+2064 | Compressed (lzutf8), encrypted (AES-256-CTR) if a password is given, then two bits at a time, in one place | Identifies it but does not read it |
+| Tag characters | U+E0000 to U+E007F | U+E0000 added to each ASCII character (ASCII smuggling) | Turns U+E0020 to U+E007E back into ASCII |
+
+For the 330k method, text made by running that tool's source (from 2016) locally was checked to read the same in this tool. Steganographr runs as PHP on its server, so it is read by following the same steps as its source.
+
+The link to WeirdString Inspector (Day023) puts the URL-encoded text in `#text=` and adds `source=bacon-cipherlab`. The part after the # is not sent to the server, but it stays in the browser history. If the URL would exceed 200,000 characters, or the text contains characters that cannot go into a URL (lone surrogates), the link is disabled and the reason is shown. At exactly the limit, the published WeirdString Inspector was checked to receive the text without losing a single character.
+
 ### Biform practice
 
 The Biform tab has 13 problems, the first of which recreates the gravestone. The two typefaces use the same family lists as the two-typeface method. The photo of the gravestone (Wikimedia Commons) is too small to tell the serifs apart, so the typefaces follow Elonka Dunin's description. Each practice text has at least five times as many letters as the hidden word.
@@ -403,7 +425,7 @@ If the service where it is posted removes zero-width characters, the message dis
 ### From the finder's side
 
 - Check whether letter case switches more often than in ordinary text
-- Check for zero-width characters. [WeirdString Inspector](https://ipusiron.github.io/weirdstring-inspector/) (Day023) lists invisible characters
+- Use "Examine invisible characters" in the Solve tab to see how many invisible characters there are and which tool's method they follow. Passing the text to [WeirdString Inspector](https://ipusiron.github.io/weirdstring-inspector/) (Day023) lets you check invisible characters one by one
 - Check whether bold or italic is scattered without regard to meaning
 - Use the table in the Embed tab to see which processing erases a hidden message (zero-width characters disappear when invisible characters are removed; bold, italic and typefaces disappear in plain text)
 
@@ -440,6 +462,7 @@ If the service where it is posted removes zero-width characters, the message dis
 - Characters other than letters (digits, symbols, non-Latin text) cannot be encrypted
 - With two typefaces, other typefaces are substituted where the named ones are missing. The distinction between serif and sans-serif is meant to hold, but how different they look depends on the environment
 - The Biform practice relies on telling shapes apart by eye, so it cannot be used with a screen reader
+- The methods of other tools are inferred from the set of characters used. StegCloak compresses (and encrypts if a password is given), so it is not read. 330k can be read only with its default four characters (text made with other characters cannot be read)
 - The Solve score is a guide based on English letter frequencies and a list of English words. For short texts or texts not in English (such as Latin), the right reading may not come out on top. Even for English text that hides nothing, a short word may appear as "Might be English"
 - Each field accepts up to 100,000 characters
 - The author does not encourage uses that deceive or harm people
@@ -454,7 +477,7 @@ npm test
 
 - Runs with `node --test` on Node.js 22 or later, with no dependencies (no `npm install` needed)
 - Runs on GitHub Actions for every push and pull request
-- `test/core.test.js`: the 24 rows of Bacon's original table and the 26-letter table, known answers for Fuge, HELLO, SOS and the gravestone, notes from decryption, round trips for 5 methods × 2 variants, intact emoji, reading HTML tokens (including typeface names), the survival table (5 methods × 8 routes), the answers of the practice problems, offset, swap and kept-character readings, one-bit candidates and readings matched to English words, and every Solve example coming out on top
+- `test/core.test.js`: the 24 rows of Bacon's original table and the 26-letter table, known answers for Fuge, HELLO, SOS and the gravestone, notes from decryption, round trips for 5 methods × 2 variants, intact emoji, reading HTML tokens (including typeface names), the survival table (5 methods × 8 routes), the answers of the practice problems, counting invisible characters and identifying and reading other tools' methods, the link to WeirdString Inspector, offset, swap and kept-character readings, one-bit candidates and readings matched to English words, and every Solve example coming out on top
 - `test/html.test.js`, `test/contrast.test.js`, `test/messages.test.js`, `test/i18n.test.js`, `test/format.test.js`: the CSP, tab ARIA, dictionary and page text, color contrast (4.5:1 and 3:1), and formatting
 - `test/readme.test.js`: checks the README's code table, examples, Solve examples, survival table, gravestone and use cases against the core, and the headings, images and directory structure of the Japanese and English READMEs
 
@@ -475,6 +498,9 @@ npm test
 - [W3C, "Content Security Policy Level 3"](https://www.w3.org/TR/CSP3/)
 - [WHATWG HTML Standard, "Pragma directives"](https://html.spec.whatwg.org/multipage/semantics.html#pragma-directives)
 - [Wikipedia, "Letter frequency"](https://en.wikipedia.org/wiki/Letter_frequency)
+- [330k, "misc_tools" (Unicode Steganography with Zero-Width Characters)](https://github.com/330k/misc_tools)
+- [KuroLabs, "StegCloak"](https://github.com/KuroLabs/stegcloak)
+- [Neatnik, "Steganographr" source](https://source.tube/neatnik/steganographr)
 - [CyberChef (Bacon.mjs)](https://github.com/gchq/CyberChef/blob/master/src/core/lib/Bacon.mjs)
 - [dCode, "Bacon Cipher"](https://www.dcode.fr/bacon-cipher)
 
@@ -498,7 +524,8 @@ bacon-cipherlab/
 │   │   ├── screenshot7.png        # Solve tab (English)
 │   │   ├── screenshot8.png        # Decrypting with an offset (English)
 │   │   ├── screenshot9.png        # Biform tab (English)
-│   │   └── screenshot10.png       # Route table (English)
+│   │   ├── screenshot10.png       # Route table (English)
+│   │   └── screenshot11.png       # Invisible-character card (English)
 │   ├── bacon-1640-accommodation.jpg # Bacon's example (1640 translation, p. 268)
 │   ├── bacon-1640-biform.jpg      # Bacon's bi-formed alphabet (1640 translation, p. 267; also used on the page)
 │   ├── bacon-1640-table.jpg       # Bacon's table (1640 translation, p. 266)
@@ -511,7 +538,8 @@ bacon-cipherlab/
 │   ├── screenshot7.png            # Solve tab
 │   ├── screenshot8.png            # Decrypting with an offset
 │   ├── screenshot9.png            # Biform tab
-│   └── screenshot10.png           # Route table
+│   ├── screenshot10.png           # Route table
+│   └── screenshot11.png           # Invisible-character card
 ├── js/                            # Scripts loaded by the page
 │   ├── bacon-core.js              # Core (tables, encryption, decryption, embedding, extraction, HTML token reading, solving)
 │   ├── i18n.js                    # Language choice and replacement of text in the HTML

@@ -49,7 +49,7 @@ hub: true
 
 **Day055 - 生成AIで作るセキュリティツール100**
 
-Bacon CipherLabは、ベーコン暗号（Bacon's Cipher）を体験するツールです。英字を1文字ずつ、aとbを5つ並べた符号に置き換え、その並びを文の字の形（大文字・小文字、太字、斜体）や、見えないゼロ幅文字に移して隠します。ベーコンが1623年に示した24文字の表と、後世の26文字版の両方で、変換・埋め込み・抽出の往復をたどれます。ずれ・aとbの入れ替え・読み違いに強い復号と、読み方を総当たりする解析タブで、隠し方のわからない文も調べられます。ベーコンの二形のアルファベットを2つの書体で試す二書体タブと、よくある処理を通したときにどの方式が残るかを比べる表もあります。ネットワークへは何も送りません。
+Bacon CipherLabは、ベーコン暗号（Bacon's Cipher）を体験するツールです。英字を1文字ずつ、aとbを5つ並べた符号に置き換え、その並びを文の字の形（大文字・小文字、太字、斜体）や、見えないゼロ幅文字に移して隠します。ベーコンが1623年に示した24文字の表と、後世の26文字版の両方で、変換・埋め込み・抽出の往復をたどれます。ずれ・aとbの入れ替え・読み違いに強い復号と、読み方を総当たりする解析タブで、隠し方のわからない文も調べられます。ベーコンの二形のアルファベットを2つの書体で試す二書体タブと、よくある処理を通したときにどの方式が残るかを比べる表もあります。見えない文字を数えて、ほかのツール（Steganographr・330k・StegCloak）やタグ文字の方式を見分け、WeirdString Inspectorへ渡すこともできます。ネットワークへは何も送りません。
 
 ---
 
@@ -102,6 +102,10 @@ Bacon CipherLabは、ベーコン暗号（Bacon's Cipher）を体験するツー
 >![5つの方式を8つの経路に通して比べた表](assets/screenshot10.png)
 >
 >*5つの方式を8つの経路に通して比べた表*
+
+>![Steganographrの方式を見分けて読んだ、見えない文字のカード](assets/screenshot11.png)
+>
+>*Steganographrの方式を見分けて読んだ、見えない文字のカード*
 
 ---
 
@@ -179,6 +183,8 @@ F・V・G・Eのaabab・baabb・aabba・aabaaを、外側の手紙の字に1つ�
 - 読み方×版（24文字・26文字）×aとbの入れ替え×ずれ（0〜4ビット）を総当たりし、点数の高い5件を、読み方・版・ずれ・点数の内訳つきで並べる
 - 候補から「復号タブで開く」で、その暗号文と設定を復号タブに入れて確かめられる
 - 例（CTFの問題文、2ビットずれた暗号文、絵文字2種類、単語の頭文字、ゼロ幅文字）を画面から入れられる
+- 「見えない文字を調べる」で、見えない文字を名前つきで数え、どのツールの方式で作られた文かを見分ける（このツール・Steganographr・330k・StegCloak・タグ文字）。読める方式なら、隠された文を示す
+- 調べる文を、WeirdString Inspector（Day023）へURLの#以降に入れて渡せる（解析タブと抽出タブ）
 
 ### 二書体
 
@@ -352,6 +358,22 @@ NFKC_CF相当は、NFKC・不可視の文字の除去・小文字化を続けて
 
 ゼロ幅文字は見た目が変わりませんが、不可視の文字を取り除く処理で消えます。二書体は書体の差が小さいものの、プレーンテキストにすると消えます。大小はプレーンテキストでも残りますが、大文字・小文字をそろえる処理で消えます。
 
+### ほかのツールのゼロ幅方式
+
+解析タブの「見えない文字を調べる」は、見えない文字を名前（UnicodeのUCD 18.0.0）つきで数え、使っている文字の組み合わせから方式を見分けます。使っている文字がその方式のものだけなら「可能性が高い」、ほかの文字も混ざっていれば「可能性がある」と示します。絵文字をつなぐZWJと異体字セレクターは数えません。方式の定義は、各ツールのソースに合わせています。
+
+| 方式 | 使う見えない文字 | 符号化 | このツールでの扱い |
+|---|---|---|---|
+| Bacon CipherLab | U+200B（a）・U+200C（b） | ベーコン暗号の5ビット。文字の後ろに1つずつ | 24文字版・26文字版で読み、英語らしいほうを示す |
+| Steganographr | U+200B（0）・U+200C（1）・U+2060（区切り）・U+FEFF（前後の境界） | UTF-8のバイトごとの2進数（桁埋めなし）。文の中央に1カ所 | 読む |
+| 330k Unicode Steganography | 既定はU+200C・U+200D・U+202C・U+FEFF（順に0〜3） | UTF-16の1単位を4進8桁。文の切れ目に散らす（順序は保つ） | 既定の4文字のときだけ読む |
+| StegCloak | U+200C・U+200D・U+2061〜U+2064 | 圧縮（lzutf8）し、パスワードがあれば暗号化（AES-256-CTR）してから2ビットずつ。1カ所にまとめる | 見分けるだけで、読まない |
+| タグ文字 | U+E0000〜U+E007F | ASCIIの字にU+E0000を足す（ASCII smuggling） | U+E0020〜U+E007EをASCIIに戻して示す |
+
+330kの方式は、そのツールのソース（2016年のもの）を手元で動かして作った文で、このツールの読みと一致することを確かめています。Steganographrはサーバー側のPHPで動くので、ソースを読んで同じ手順で読んでいます。
+
+WeirdString Inspector（Day023）へのリンクは、`#text=`に調べる文をURLエンコードして入れ、`source=bacon-cipherlab`を付けます。URLの#以降はサーバーへ送られませんが、ブラウザーの履歴には残ります。URLが200,000文字を超える場合と、URLにできない文字（孤立したサロゲート）を含む場合は、リンクを無効にして理由を示します。上限ちょうどの長さで、公開中のWeirdString Inspectorが文を1文字も欠けずに受け取ることを確かめています。
+
 ### 二書体の練習
 
 二書体タブの練習は13問で、最初が墓碑の再現です。2つの書体は、二書体の方式と同じ書体名の並びで描きます。墓碑の写真（Wikimedia Commons）は碑文の字が小さく、セリフを見分けられないので、Elonka Duninの説明どおりに書体を当てて再現しています。練習の問題の文は、隠す語の5倍以上の英字を持ちます。
@@ -442,7 +464,7 @@ cOnSTruCtion WorK in The city Is gOinG Well TOdAy. MAnY wORkers are busy at the 
 ### 見つける側の視点
 
 - 英字の大小の切り替えが、ふつうの文より多くないかを見る
-- ゼロ幅文字があるかを調べる。[WeirdString Inspector](https://ipusiron.github.io/weirdstring-inspector/)（Day023）は、見えない文字を一覧にする
+- 解析タブの「見えない文字を調べる」で、見えない文字の数と、どのツールの方式かを確かめる。[WeirdString Inspector](https://ipusiron.github.io/weirdstring-inspector/)（Day023）へ渡すと、見えない文字を1字ずつ確かめられる
 - 太字・斜体が、意味の切れ目と関係なく散らばっていないかを見る
 - 埋め込みタブの表で、どの処理を通せば隠したメッセージが消えるかを確かめる（ゼロ幅文字は不可視の文字の除去で、太字・斜体・二書体はプレーンテキストで消える）
 
@@ -479,6 +501,7 @@ cOnSTruCtion WorK in The city Is gOinG Well TOdAy. MAnY wORkers are busy at the 
 - 英字以外（数字・記号・日本語）は暗号にできません
 - 二書体は、相手の環境に同じ書体がないと別の書体に置き換わります。セリフとサンセリフの区別を保とうとしていますが、見た目の差は環境で変わります
 - 二書体の練習は字の形を目で見分けるので、スクリーンリーダーでは使えません
+- ほかのツールの方式は、使っている文字の組み合わせから推定しています。StegCloakは圧縮（とパスワードがあれば暗号化）をするので読みません。330kは既定の4文字の場合だけ読めます（文字を選び直して作った文は読めません）
 - 解析の点数は、英語の文字の出現頻度と英単語の一覧から出す目安です。短い文や英語でない文（ラテン語など）では、正しい読みが上位に来ないことがあります。何も隠していない英文でも、短い語が「読めるかもしれません」として出ることがあります
 - 入力は1つの欄あたり100,000文字までです
 - 作者は、人をだましたり害したりする使い方を勧めません
@@ -493,7 +516,7 @@ npm test
 
 - Node.js 22以上の`node --test`で動き、依存パッケージはない（`npm install`は不要）
 - GitHub Actionsで、pushとpull requestのたびに実行する
-- `test/core.test.js`：ベーコンの原典の24行・26文字版の表、Fuge・HELLO・SOS・墓碑の既知解答、復号の知らせ、5方式×2版の往復、絵文字を壊さないこと、HTMLの字句の読み取り（二書体の書体名を含む）、生存性の表（5方式×8経路）、練習の問題の答え、ずれ・入れ替え・記号を残す読み、1ビット違いの候補と英単語での読み替え、解析の例がどれも1位になること
+- `test/core.test.js`：ベーコンの原典の24行・26文字版の表、Fuge・HELLO・SOS・墓碑の既知解答、復号の知らせ、5方式×2版の往復、絵文字を壊さないこと、HTMLの字句の読み取り（二書体の書体名を含む）、生存性の表（5方式×8経路）、練習の問題の答え、見えない文字の数え方とほかのツールの方式の識別と読み、WeirdString Inspectorへのリンク、ずれ・入れ替え・記号を残す読み、1ビット違いの候補と英単語での読み替え、解析の例がどれも1位になること
 - `test/html.test.js`・`test/contrast.test.js`・`test/messages.test.js`・`test/i18n.test.js`・`test/format.test.js`：CSP、タブのARIA、辞書と画面の文言、配色のコントラスト（4.5:1・3:1）、書式
 - `test/readme.test.js`：READMEの対応表・変換の例・解析の例・生存性の表・墓碑・活用例を計算部の出力と比べ、日英のREADMEの見出し・画像・ディレクトリー構造を確かめる
 
@@ -514,6 +537,9 @@ npm test
 - [W3C「Content Security Policy Level 3」](https://www.w3.org/TR/CSP3/)
 - [WHATWG HTML Standard「Pragma directives」](https://html.spec.whatwg.org/multipage/semantics.html#pragma-directives)
 - [Wikipedia「Letter frequency」](https://en.wikipedia.org/wiki/Letter_frequency)
+- [330k「misc_tools」（Unicode Steganography with Zero-Width Characters）](https://github.com/330k/misc_tools)
+- [KuroLabs「StegCloak」](https://github.com/KuroLabs/stegcloak)
+- [Neatnik「Steganographr」のソース](https://source.tube/neatnik/steganographr)
 - [CyberChef（Bacon.mjs）](https://github.com/gchq/CyberChef/blob/master/src/core/lib/Bacon.mjs)
 - [dCode「Bacon Cipher」](https://www.dcode.fr/bacon-cipher)
 
@@ -537,7 +563,8 @@ bacon-cipherlab/
 │   │   ├── screenshot7.png        # 解析タブ（英語）
 │   │   ├── screenshot8.png        # ずれを指定した復号（英語）
 │   │   ├── screenshot9.png        # 二書体タブ（英語）
-│   │   └── screenshot10.png       # 経路の表（英語）
+│   │   ├── screenshot10.png       # 経路の表（英語）
+│   │   └── screenshot11.png       # 見えない文字のカード（英語）
 │   ├── bacon-1640-accommodation.jpg # ベーコンの例（1640年の英訳 p.268）
 │   ├── bacon-1640-biform.jpg      # ベーコンの二形のアルファベット（1640年の英訳 p.267。画面でも使う）
 │   ├── bacon-1640-table.jpg       # ベーコンの表（1640年の英訳 p.266）
@@ -550,7 +577,8 @@ bacon-cipherlab/
 │   ├── screenshot7.png            # 解析タブ
 │   ├── screenshot8.png            # ずれを指定した復号
 │   ├── screenshot9.png            # 二書体タブ
-│   └── screenshot10.png           # 経路の表
+│   ├── screenshot10.png           # 経路の表
+│   └── screenshot11.png           # 見えない文字のカード
 ├── js/                            # 画面が読むスクリプト
 │   ├── bacon-core.js              # 計算部（対応表・暗号化・復号・埋め込み・抽出・HTMLの字句の読み取り・解析）
 │   ├── i18n.js                    # 言語の選択と、HTMLの文言の差し替え

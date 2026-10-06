@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { read, core } from './load.js';
+import { read, core, load } from './load.js';
 
 const C = core();
+const { MESSAGES } = load('js/messages.js').BaconMessages;
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 const DOCS = {
@@ -14,7 +15,9 @@ const DOCS = {
     shots: /^assets\/screenshot\d*\.png$/,
     sec: { tech: '🔬 技術的な説明', limits: '⚠️ 注意と限界', refs: '🔗 参考', tree: '📁 ディレクトリー構造', about: '🛠️ このツールについて',
       security: '🔒 セキュリティ', uses: '🎯 活用例', friedman: '🪦 フリードマン夫妻の墓碑', about2: '🥓 ベーコン暗号とは' },
-    head: { table: '| 字 | 24文字版 | 26文字版 |', examples: '| 平文 | 24文字版 | 26文字版 |', methods: '| 方式 | a | b | キャリア |' },
+    head: { table: '| 字 | 24文字版 | 26文字版 |', examples: '| 平文 | 24文字版 | 26文字版 |', methods: '| 方式 | a | b | キャリア |',
+      readings: '| 読み方 | aになるもの | bになるもの |', samples: '| 例 | 1位の読み | 読み方 | 版 | ずれ |' },
+    words: (n) => `英単語の一覧（${n}語）`, thresholds: ['1以上', '0.5以上'],
     same: (x) => `（${x}と同じ）`,
     method: { 大小: 'case', ゼロ幅文字: 'zw' },
     max: (n) => `${n.toLocaleString('en-US')}文字まで`,
@@ -27,7 +30,9 @@ const DOCS = {
     sec: { tech: '🔬 Technical notes', limits: '⚠️ Notes and limitations', refs: '🔗 References', tree: '📁 Directory structure',
       about: '🛠️ About this tool', security: '🔒 Security', uses: '🎯 Use cases', friedman: "🪦 The Friedmans' gravestone",
       about2: "🥓 What is Bacon's cipher?" },
-    head: { table: '| Letter | 24 letters | 26 letters |', examples: '| Plaintext | 24 letters | 26 letters |', methods: '| Method | a | b | Carrier |' },
+    head: { table: '| Letter | 24 letters | 26 letters |', examples: '| Plaintext | 24 letters | 26 letters |', methods: '| Method | a | b | Carrier |',
+      readings: '| Reading | Becomes a | Becomes b |', samples: '| Example | Top reading | Reading | Variant | Offset |' },
+    words: (n) => `list of English words (${n} words)`, thresholds: ['1 or more', '0.5 or more'],
     same: (x) => ` (same as ${x})`,
     method: { case: 'case', 'zero-width characters': 'zw' },
     max: (n) => `up to ${n.toLocaleString('en-US')} characters`,
@@ -163,6 +168,35 @@ for (const [lang, d] of Object.entries(DOCS)) {
     assert.equal(C.extractZw(zw).bits.length, C.encode('HELP', '24').bits.length);
   });
 
+  test(`${d.file}: 解析の読み方の表は計算部の読み方と同じ順で、名前は画面の辞書と同じ`, () => {
+    const rows = table(section(d.text, d.sec.tech), d.head.readings);
+    assert.equal(rows.length, C.READINGS.length);
+    rows.forEach(([name], i) => {
+      const label = MESSAGES[lang][`reading.${C.READINGS[i]}`].replace(/（\{a\}と\{b\}）$| \(\{a\} and \{b\}\)$/, '');
+      assert.equal(name, label, C.READINGS[i]);
+    });
+    assert.deepEqual(rows[C.READINGS.indexOf('zw')].slice(1, 3), ['U+200B', 'U+200C']);
+  });
+
+  test(`${d.file}: 解析の例の表は、計算部の例を総当たりした1位と同じ。語数と点数の目安も実装と同じ`, () => {
+    const rows = table(section(d.text, d.sec.tech), d.head.samples);
+    assert.equal(rows.length, C.SAMPLE_IDS.length);
+    rows.forEach(([name, text, reading, variant, offset], i) => {
+      const id = C.SAMPLE_IDS[i];
+      const top = C.solve(C.makeSample(id)).candidates[0];
+      assert.equal(name, MESSAGES[lang][`sample.${id}`], id);
+      assert.equal(unquote(text), top.text, id);
+      assert.ok(MESSAGES[lang][`reading.${top.reading}`].startsWith(reading), `${id}: ${reading}`);
+      assert.equal(variant, MESSAGES[lang][`variant.${top.variant}`], id);
+      assert.equal(Number(offset), top.offset, id);
+      assert.equal(top.invert, false, id);
+    });
+    const tech = section(d.text, d.sec.tech);
+    assert.ok(tech.includes(d.words(C.WORDS.length)), String(C.WORDS.length));
+    for (const x of d.thresholds) assert.ok(tech.includes(x), x);
+    assert.match(read('script.js'), /score >= 1 \? 'high' : score >= 0\.5 \? 'mid' : 'low'/);
+  });
+
   test(`${d.file}: CSP・入力の上限は実装と同じ`, () => {
     const csp = read('index.html').match(/http-equiv="Content-Security-Policy"\s+content="([^"]+)"/)[1];
     assert.ok(section(d.text, d.sec.security).includes(`\`${csp}\``));
@@ -190,16 +224,16 @@ for (const [lang, d] of Object.entries(DOCS)) {
 test('参考文献の URL は日英で同じ', () => {
   const urls = (d) => [...section(d.text, d.sec.refs).matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
   assert.deepEqual(urls(DOCS.en), urls(DOCS.ja));
-  assert.equal(urls(DOCS.ja).length, 14);
+  assert.equal(urls(DOCS.ja).length, 15);
 });
 
-test('画像: 参照はすべて実在する。スクリーンショットは日本語版が assets/、英語版が assets/en/ の6枚。どこからも参照しない画像は置かない', () => {
+test('画像: 参照はすべて実在する。スクリーンショットは日本語版が assets/、英語版が assets/en/ の8枚。どこからも参照しない画像は置かない', () => {
   const refs = {};
   for (const [lang, d] of Object.entries(DOCS)) {
     refs[lang] = [...d.text.matchAll(/!\[[^\]]*\]\((assets\/[^)]+)\)/g)].map((m) => m[1]);
     for (const r of refs[lang]) assert.ok(fs.existsSync(path.join(ROOT, r)), r);
     const shots = refs[lang].filter((r) => /screenshot/.test(r));
-    assert.equal(shots.length, 6, lang);
+    assert.equal(shots.length, 8, lang);
     for (const r of shots) {
       assert.match(r, d.shots, r);
       assert.ok(fs.statSync(path.join(ROOT, r)).size <= 300 * 1024, r);

@@ -10,7 +10,7 @@ English · [日本語](README.md)
 
 **Day055 - 100 Security Tools with Generative AI**
 
-Bacon CipherLab is a tool for trying Bacon's cipher. Each letter becomes a code of five a/b symbols, and the sequence is then hidden in the shapes of the letters of a text (uppercase and lowercase, bold, italic) or in invisible zero-width characters. You can follow the whole round trip of conversion, embedding and extraction with both the 24-letter table Bacon published in 1623 and the later 26-letter variant. Decryption that copes with offsets, swapped a and b and misread codes, and a Solve tab that tries every reading, let you examine texts even when you do not know how they were hidden. Nothing is sent over the network.
+Bacon CipherLab is a tool for trying Bacon's cipher. Each letter becomes a code of five a/b symbols, and the sequence is then hidden in the shapes of the letters of a text (uppercase and lowercase, bold, italic) or in invisible zero-width characters. You can follow the whole round trip of conversion, embedding and extraction with both the 24-letter table Bacon published in 1623 and the later 26-letter variant. Decryption that copes with offsets, swapped a and b and misread codes, and a Solve tab that tries every reading, let you examine texts even when you do not know how they were hidden. A Biform tab tries Bacon's bi-formed alphabet with two typefaces, and a table compares which methods survive common processing. Nothing is sent over the network.
 
 ---
 
@@ -56,6 +56,14 @@ Try it directly in your browser.
 >
 >*The Decrypt tab reading a ciphertext shifted by 2 bits with an offset*
 
+>![The Biform tab after telling letter shapes apart in the recreated gravestone](assets/en/screenshot9.png)
+>
+>*The Biform tab after telling letter shapes apart in the recreated gravestone*
+
+>![The table comparing five methods through eight routes](assets/en/screenshot10.png)
+>
+>*The table comparing five methods through eight routes*
+
 ---
 
 ## 🥓 What is Bacon's cipher?
@@ -82,7 +90,13 @@ To hide the codes in a text, you prepare a "Bi-formed Alphabet", in which every 
 
 The symbols for F, V, G and E (aabab, baabb, aabba, aabaa) go one by one onto the letters of the exterior letter. Bacon wrote that the exterior letter is five times as long as the interior one, and that no other condition is needed. He also wrote that anything with a twofold difference will do, such as bells, trumpets, lights and torches, or the report of muskets.
 
-The case, bold and italic methods of this tool are an easy modern version of the bi-formed alphabet. The 26-letter variant (A = aaaaa to Z = bbaab), which gives every letter its own code, is a later variant and not Bacon's own table.
+Bacon also printed an example of the bi-formed alphabet, in which every letter can be written in two shapes. The a or b above each letter is the value of that shape.
+
+>![Bacon's bi-formed alphabet](assets/bacon-1640-biform.jpg)
+>
+>*Bacon's bi-formed alphabet (p. 267)*
+
+The case, bold, italic and two-typeface methods of this tool are an easy modern version of the bi-formed alphabet. The two-typeface method makes letters in a serif typeface b and letters in a sans-serif typeface a (the same direction as the Friedmans' gravestone). The 26-letter variant (A = aaaaa to Z = bbaab), which gives every letter its own code, is a later variant and not Bacon's own table.
 
 ---
 
@@ -107,24 +121,31 @@ The case, bold and italic methods of this tool are an easy modern version of the
 
 ### Embed
 
-- Hides the a/b symbols of a message in a cover text with four methods (case, bold, italic, zero-width characters)
+- Hides the a/b symbols of a message in a cover text with five methods (case, bold, italic, two typefaces, zero-width characters)
 - Shows how many carriers are needed and how many the cover text has
 - With the case method, makes letters after the message lowercase (a); this can be turned off
 - For zero-width characters, the preview can show where each one went. Emoji and combining characters stay intact
 - Copy as text or HTML, or download the HTML. "Read it in the Extract tab" checks the round trip
+- "Compare through routes" passes the five methods through eight routes (making it plain text, removing invisible characters, normalizing case and so on) and shows in a table whether the message comes back
 
 ### Extract
 
-- Reads case and zero-width characters from text, and bold and italic from HTML (including the way Word and Google Docs write it)
+- Reads case and zero-width characters from text, and bold, italic and typefaces from HTML (including the way Word and Google Docs write it)
 - Drops the trailing padding (groups of aaaaa) and says how many letters were dropped
 - Reports zero-width characters this tool does not use (ZWJ, WORD JOINER, BOM), if any
 
 ### Solve
 
-- Takes anything in the pasted text that comes in two kinds as a reading (a/b symbols, uppercase and lowercase, A–M and N–Z, first letters of words, consonants and vowels, exactly two kinds of symbols, bold and italic, zero-width characters)
+- Takes anything in the pasted text that comes in two kinds as a reading (a/b symbols, uppercase and lowercase, A–M and N–Z, first letters of words, consonants and vowels, exactly two kinds of symbols, bold, italic and typefaces, zero-width characters)
 - Tries every reading × variant (24 or 26 letters) × a/b swap × offset (0 to 4 bits), and lists the five best with the reading, variant, offset and score breakdown
 - "Open in the Decrypt tab" puts a candidate's ciphertext and settings into the Decrypt tab to check it
 - Examples (a CTF challenge text, a ciphertext shifted by 2 bits, two kinds of emoji, first letters of words, zero-width characters) can be inserted from the page
+
+### Biform
+
+- Practice judging a and b by pressing each letter of a text drawn in two typefaces, with Bacon's bi-formed alphabet (1640 English translation, p. 267) as a guide
+- The first problem recreates the Friedmans' gravestone (the answer is WFF). There are 12 more practice problems
+- Checking marks the letters that were judged wrong
 
 ### Table
 
@@ -148,6 +169,7 @@ The case, bold and italic methods of this tool are an easy modern version of the
 5. Hand over text embedded in bold or italic as copied HTML or a downloaded file. Case and zero-width characters can be copied as plain text
 6. Paste a text you received into the Extract tab and read it with the same method and variant used for embedding
 7. Paste a text whose hiding method you do not know into the Solve tab. Use "Open in the Decrypt tab" on a top candidate to check the offset and swap
+8. Practice telling letter shapes apart in the Biform tab. Use "Compare through routes" in the Embed tab to see which processing erases which method
 
 ---
 
@@ -201,21 +223,25 @@ In the 24-letter variant, J has the same code as I, and V the same code as U. Wh
 | Case | Lowercase | Uppercase | Letters (A–Z, a–z) | Plain text in general | Processing that normalizes case |
 | Bold | Normal | Bold | Characters other than spaces | HTML and word-processor documents | Copying as plain text |
 | Italic | Normal | Italic | Characters other than spaces | HTML and word-processor documents | Copying as plain text |
+| Two typefaces | Sans-serif | Serif | Characters other than spaces | HTML and word-processor documents | Copying as plain text |
 | Zero-width characters | U+200B | U+200C | The place after each character | Most plain text | Processing that removes zero-width characters |
 
-Each carrier carries one bit. A letter needs five carriers, so the cover text needs at least five times as many carriers as the letters to hide. For bold, italic and zero-width characters, characters are counted as graphemes (what looks like one character, including emoji sequences and combining characters). Bold spaces are invisible, so spaces are not used as carriers.
+Each carrier carries one bit. A letter needs five carriers, so the cover text needs at least five times as many carriers as the letters to hide. For bold, italic, two typefaces and zero-width characters, characters are counted as graphemes (what looks like one character, including emoji sequences and combining characters). Bold spaces are invisible, so spaces are not used as carriers.
 
 ### End of the message
 
 Bacon's cipher has no symbol for the end of a message. If the cover text is longer than the message, the carriers after it are read as well. So embedding sets the carriers after the message to a (lowercase for case; bold and italic simply stay normal), and extraction drops trailing "all a" groups (the letter A) as padding. If the message ends in A, uncheck the box in the Extract tab to keep them. Trailing bits fewer than five are not read.
 
-### How bold and italic HTML is read
+### How bold, italic and typeface HTML is read
 
 - Bold: `b` and `strong` tags, `class="bacon-bold"`, and `font-weight` of `bold`, `bolder` or 600 and above
 - Italic: `i` and `em` tags, `class="bacon-italic"`, and `font-style` of `italic` or `oblique`
+- Typeface: the first family name in `font-family` (the `face` of a `font` tag is read too). Names such as sans, Arial, Helvetica, Segoe, Calibri, Gothic and Meiryo are sans-serif; names such as serif, Times, Georgia, Garamond, Cambria and Mincho are serif. Characters with no typeface inherit the outer one
 - `font-weight: normal` or `font-style: normal` inside turns it back to normal (Google Docs wraps everything in `<b style="font-weight:normal">`)
 - Declarations with other names such as `mso-bidi-font-weight` are ignored (Word writes them)
 - The contents of `script`, `style` and similar elements, and comments, are not read. Character references such as `&amp;` become characters
+
+HTML embedded with two typefaces wraps everything in a sans-serif span (`'Segoe UI', Arial, Helvetica, sans-serif`) and puts b letters in serif spans (`Georgia, 'Times New Roman', Times, serif`). The lists end in `sans-serif` and `serif`, so the distinction between serif and sans-serif is meant to hold even where the named typefaces are missing.
 
 HTML is parsed by reading its tokens in the core, not by the browser's HTML parser, because letting the browser parse `style` attributes under the CSP reports violations.
 
@@ -239,6 +265,7 @@ A code that matches no letter ("?") may be a one-bit misreading. Codes that matc
 | Two kinds of symbols | The symbol that appears first | The other symbol | Texts with exactly two kinds of non-space characters (counted as graphemes) |
 | Bold | Normal | Bold | Non-space characters in HTML |
 | Italic | Normal | Italic | Non-space characters in HTML |
+| Two typefaces | Sans-serif | Serif | Non-space characters in HTML (judged by the font-family name) |
 | Zero-width characters | U+200B | U+200C | Zero-width characters |
 
 Because swaps are tried anyway, a reading that is only another reading with a and b swapped is left out. Each reading is read with the 24- and 26-letter variants, with and without the swap, and with offsets of 0 to 4 bits; the trailing padding (groups of aaaaa) is dropped before scoring.
@@ -256,6 +283,39 @@ The score is English-likeness + 1.2 × the share of letters covered by English w
 ### Zero-width characters
 
 U+200B (ZERO WIDTH SPACE) and U+200C (ZERO WIDTH NON-JOINER) are both format characters (General Category Cf) that are normally not displayed (Default_Ignorable_Code_Point). They are not always invisible, though. Editors that show hidden characters display them, and U+200C breaks joining and ligatures in scripts such as Arabic. In justified text, the spacing may also change. The NFKC_CF normalization of Unicode removes them.
+
+### Survival through routes
+
+"Compare through routes" in the Embed tab embeds the cover text and message with the five methods, passes the result through the eight routes below, extracts it, and checks whether the message comes back. The routes are applied to the HTML string; case and zero-width characters are read from its text, and bold, italic and typefaces from the HTML.
+
+- Paste as HTML: pasting with formatting into a rich-text editor or an email
+- Make it plain text: pasting into a field with no formatting (a text editor, many posting forms). Bold, italic and typefaces disappear
+- NFKC normalization: processing that unifies full-width and half-width forms. Letters stay, and so do zero-width characters
+- Remove invisible characters: processing that deletes characters that are normally not displayed (Default_Ignorable_Code_Point), such as zero-width characters
+- Make everything uppercase: processing that puts headings or subject lines in capitals
+- Make everything lowercase: a step before case-insensitive comparison or search
+- NFKC_CF-like: NFKC, removal of invisible characters and lowercasing together (an approximation of one of the Unicode normalizations)
+- Collapse spaces and line breaks: formatting that turns runs of spaces and line breaks into one space
+
+The NFKC_CF-like route is an approximation that applies NFKC, removal of invisible characters and lowercasing in turn; it is not exactly Unicode's NFKC_Casefold. The table below is the result of embedding MEET AT NOON in the article text of Scenario 1 (for case, letters after the message are made lowercase).
+
+| Route | Case | Bold | Italic | Typefaces | Zero-width |
+|---|---|---|---|---|---|
+| Visible change | Capitals stand out | Bold stands out | Italic stands out | Small difference | No change |
+| Paste as HTML | Survives | Survives | Survives | Survives | Survives |
+| Make it plain text | Survives | Lost | Lost | Lost | Survives |
+| NFKC normalization | Survives | Survives | Survives | Survives | Survives |
+| Remove invisible characters | Survives | Survives | Survives | Survives | Lost |
+| Make everything uppercase | Lost | Survives | Survives | Survives | Survives |
+| Make everything lowercase | Lost | Survives | Survives | Survives | Survives |
+| NFKC_CF-like | Lost | Survives | Survives | Survives | Lost |
+| Collapse spaces and line breaks | Survives | Survives | Survives | Survives | Survives |
+
+Zero-width characters do not change the look, but disappear when invisible characters are removed. Two typefaces differ only slightly, but disappear in plain text. Case survives plain text, but disappears when case is normalized.
+
+### Biform practice
+
+The Biform tab has 13 problems, the first of which recreates the gravestone. The two typefaces use the same family lists as the two-typeface method. The photo of the gravestone (Wikimedia Commons) is too small to tell the serifs apart, so the typefaces follow Elonka Dunin's description. Each practice text has at least five times as many letters as the hidden word.
 
 ---
 
@@ -293,6 +353,7 @@ The photo is "ANCExplorer William F. Friedman grave" on Wikimedia Commons (publi
 - Show the step that turns letters into codes (substitution) apart from the step that hides the codes in a text (concealment), to explain the difference between cryptography and steganography
 - Follow Bacon's Fuge example and the Friedmans' gravestone in the Encrypt and Extract tabs
 - Use it as an introduction to binary numbers: five bits give 32 patterns, enough for both 24 and 26 letters, as the table shows
+- Practice telling letter shapes apart in the Biform tab, with Bacon's bi-formed alphabet as a guide
 
 ### Setting and solving CTF challenges
 
@@ -344,6 +405,7 @@ If the service where it is posted removes zero-width characters, the message dis
 - Check whether letter case switches more often than in ordinary text
 - Check for zero-width characters. [WeirdString Inspector](https://ipusiron.github.io/weirdstring-inspector/) (Day023) lists invisible characters
 - Check whether bold or italic is scattered without regard to meaning
+- Use the table in the Embed tab to see which processing erases a hidden message (zero-width characters disappear when invisible characters are removed; bold, italic and typefaces disappear in plain text)
 
 ---
 
@@ -376,6 +438,8 @@ If the service where it is posted removes zero-width characters, the message dis
 - Bold and italic survive only in HTML and word-processor documents. Zero-width characters disappear when a service or editor removes them
 - Extraction drops trailing "all a" groups as padding. If the message ends in A, uncheck the box to keep them
 - Characters other than letters (digits, symbols, non-Latin text) cannot be encrypted
+- With two typefaces, other typefaces are substituted where the named ones are missing. The distinction between serif and sans-serif is meant to hold, but how different they look depends on the environment
+- The Biform practice relies on telling shapes apart by eye, so it cannot be used with a screen reader
 - The Solve score is a guide based on English letter frequencies and a list of English words. For short texts or texts not in English (such as Latin), the right reading may not come out on top. Even for English text that hides nothing, a short word may appear as "Might be English"
 - Each field accepts up to 100,000 characters
 - The author does not encourage uses that deceive or harm people
@@ -390,9 +454,9 @@ npm test
 
 - Runs with `node --test` on Node.js 22 or later, with no dependencies (no `npm install` needed)
 - Runs on GitHub Actions for every push and pull request
-- `test/core.test.js`: the 24 rows of Bacon's original table and the 26-letter table, known answers for Fuge, HELLO, SOS and the gravestone, notes from decryption, round trips for 4 methods × 2 variants, intact emoji, reading HTML tokens, offset, swap and kept-character readings, one-bit candidates and readings matched to English words, and every Solve example coming out on top
+- `test/core.test.js`: the 24 rows of Bacon's original table and the 26-letter table, known answers for Fuge, HELLO, SOS and the gravestone, notes from decryption, round trips for 5 methods × 2 variants, intact emoji, reading HTML tokens (including typeface names), the survival table (5 methods × 8 routes), the answers of the practice problems, offset, swap and kept-character readings, one-bit candidates and readings matched to English words, and every Solve example coming out on top
 - `test/html.test.js`, `test/contrast.test.js`, `test/messages.test.js`, `test/i18n.test.js`, `test/format.test.js`: the CSP, tab ARIA, dictionary and page text, color contrast (4.5:1 and 3:1), and formatting
-- `test/readme.test.js`: checks the README's code table, examples, Solve examples, gravestone and use cases against the core, and the headings, images and directory structure of the Japanese and English READMEs
+- `test/readme.test.js`: checks the README's code table, examples, Solve examples, survival table, gravestone and use cases against the core, and the headings, images and directory structure of the Japanese and English READMEs
 
 ---
 
@@ -432,8 +496,11 @@ bacon-cipherlab/
 │   │   ├── screenshot5.png        # Table (English, dark)
 │   │   ├── screenshot6.png        # Embedding in bold (English)
 │   │   ├── screenshot7.png        # Solve tab (English)
-│   │   └── screenshot8.png        # Decrypting with an offset (English)
+│   │   ├── screenshot8.png        # Decrypting with an offset (English)
+│   │   ├── screenshot9.png        # Biform tab (English)
+│   │   └── screenshot10.png       # Route table (English)
 │   ├── bacon-1640-accommodation.jpg # Bacon's example (1640 translation, p. 268)
+│   ├── bacon-1640-biform.jpg      # Bacon's bi-formed alphabet (1640 translation, p. 267; also used on the page)
 │   ├── bacon-1640-table.jpg       # Bacon's table (1640 translation, p. 266)
 │   ├── screenshot.png             # Embedding with zero-width characters
 │   ├── screenshot2.png            # Encrypt tab
@@ -442,7 +509,9 @@ bacon-cipherlab/
 │   ├── screenshot5.png            # Table (dark)
 │   ├── screenshot6.png            # Embedding in bold
 │   ├── screenshot7.png            # Solve tab
-│   └── screenshot8.png            # Decrypting with an offset
+│   ├── screenshot8.png            # Decrypting with an offset
+│   ├── screenshot9.png            # Biform tab
+│   └── screenshot10.png           # Route table
 ├── js/                            # Scripts loaded by the page
 │   ├── bacon-core.js              # Core (tables, encryption, decryption, embedding, extraction, HTML token reading, solving)
 │   ├── i18n.js                    # Language choice and replacement of text in the HTML

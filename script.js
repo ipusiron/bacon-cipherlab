@@ -75,7 +75,8 @@
   const tooLong = (...values) => values.some((v) => v.length > C.MAX_INPUT);
 
   // ===== タブ（WAI-ARIA のタブ。矢印キー・Home・End で移る） =====
-  const TABS = ['encode', 'decode', 'embed', 'extract', 'solve', 'table'];
+  const TABS = ['encode', 'decode', 'embed', 'extract', 'solve', 'biform', 'table'];
+  const RICH = ['bold', 'italic', 'font'];
   function selectTab(name, focus = false) {
     for (const k of TABS) {
       const on = k === name;
@@ -236,8 +237,9 @@
 
   function renderPreview(r) {
     const box = $('embed-preview');
-    if (r.method === 'bold' || r.method === 'italic') {
-      const cls = r.method === 'bold' ? 'mark-bold' : 'mark-italic';
+    box.className = r.method === 'font' ? 'preview form-a' : 'preview';
+    if (RICH.includes(r.method)) {
+      const cls = { bold: 'mark-bold', italic: 'mark-italic', font: 'form-b' }[r.method];
       box.replaceChildren(...r.parts.map((p) => (p.mark ? el('span', cls, p.text) : document.createTextNode(p.text))));
       return;
     }
@@ -263,7 +265,7 @@
   function renderEmbed() {
     const method = $('embed-method').value;
     const cover = $('embed-cover').value;
-    const rich = method === 'bold' || method === 'italic';
+    const rich = RICH.includes(method);
     $('embed-fill').parentElement.hidden = method !== 'case';
     $('embed-reveal').parentElement.hidden = method !== 'zw';
     $('embed-variant').disabled = $('embed-kind').value === 'bits';
@@ -274,8 +276,12 @@
       for (const id of ['btn-embed-copy-text', 'btn-embed-copy-html', 'btn-embed-download', 'btn-embed-to-extract']) $(id).disabled = true;
       show('embed-status', [item, ...extra]);
     };
-    if (tooLong(cover, $('embed-msg').value)) return off({ key: 'input.tooLong', vars: { max: C.MAX_INPUT }, level: 'warn' });
+    if (tooLong(cover, $('embed-msg').value)) {
+      renderRoutes('');
+      return off({ key: 'input.tooLong', vars: { max: C.MAX_INPUT }, level: 'warn' });
+    }
     const m = embedBits();
+    renderRoutes(m.bits);
     const r = C.embed(cover, m.bits, method, { fillRest: $('embed-fill').checked });
     if (!r.ok) return off({ key: r.error === 'short' ? 'embed.short' : 'embed.noBits', vars: { need: r.need, supply: r.supply }, level: 'warn' }, m.items);
     lastEmbed = { ...r, variant: $('embed-variant').value };
@@ -305,7 +311,7 @@
     else {
       const runs = C.runsFromHtml(raw);
       x = C.extractRuns(runs, method);
-      marked = runs.some((r) => (method === 'bold' ? r.bold : r.italic));
+      marked = runs.some((r) => (method === 'bold' ? r.bold : method === 'italic' ? r.italic : r.serif === true));
     }
     const m = C.readMessage(x.bits, variant, { trim: $('extract-trim').checked });
     $('extract-bits').value = C.formatBits(x.bits, 'ab', '5');
@@ -323,6 +329,91 @@
     }
     if (x.other) items.push({ key: 'extract.other', vars: { n: x.other }, level: 'warn' });
     show('extract-status', items);
+  }
+
+  // ===== 経路を通したときに残るか（生存性） =====
+  function renderRoutes(bits) {
+    const table = $('route-table');
+    $('route-examples').replaceChildren(...C.ROUTES.map((id) => el('li', null, t(`route.ex.${id}`))));
+    if (!bits) {
+      table.replaceChildren();
+      $('route-status').textContent = t('route.empty');
+      return;
+    }
+    const r = C.survival($('embed-cover').value, bits, $('embed-variant').value, { fillRest: $('embed-fill').checked });
+    const th = (text, scope) => {
+      const e = el('th', null, text);
+      e.scope = scope;
+      return e;
+    };
+    const headRow = el('tr');
+    headRow.append(th(t('route.colRoute'), 'col'), ...r.methods.map((m) => th(t(`methodShort.${m.method}`), 'col')));
+    const look = el('tr');
+    look.append(th(t('route.look'), 'row'), ...r.methods.map((m) => el('td', 'route-look', t(`look.${m.method}`))));
+    const rows = C.ROUTES.map((id, i) => {
+      const tr = el('tr');
+      tr.append(th(t(`route.${id}`), 'row'), ...r.methods.map((m) => {
+        if (!m.ok) return el('td', 'route-look', '—');
+        const c = m.cells[i];
+        if (c.survived) return el('td', 'route-yes', `✓ ${t('route.yes')}`);
+        return el('td', 'route-no', `✗ ${t('route.no')}${c.read ? t('route.read', { text: shorten(c.read, 16) }) : t('route.readEmpty')}`);
+      }));
+      return tr;
+    });
+    const thead = el('thead');
+    thead.append(headRow);
+    const tbody = el('tbody');
+    tbody.append(look, ...rows);
+    table.replaceChildren(thead, tbody);
+    const notes = [t('route.status', { want: shorten(r.want, 30) })];
+    for (const m of r.methods.filter((x) => !x.ok)) {
+      notes.push(t('route.short', { method: t(`methodShort.${m.method}`), need: m.need, supply: m.supply }));
+    }
+    $('route-status').textContent = notes.join(' ');
+  }
+
+  // ===== 二書体の練習 =====
+  let labIndex = 0;
+  let labMarks = [];
+  let labChecked = false;
+
+  function updateLab() {
+    const p = C.labProblem(labIndex);
+    const bits = labMarks.map((b) => (b ? '1' : '0')).join('');
+    $('lab-bits').value = C.formatBits(bits, 'ab', '5');
+    const read = C.readMessage(bits, '24').text;
+    const items = [read ? { key: 'lab.read', vars: { text: read } } : { key: 'lab.readEmpty' }];
+    if (labChecked) {
+      const right = p.tokens.filter((tk) => !tk.space && labMarks[tk.index] === tk.b).length;
+      items.unshift(right === p.letters
+        ? { key: 'lab.perfect', vars: { answer: p.answer }, level: 'ok' }
+        : { key: 'lab.result', vars: { total: p.letters, right, answer: p.answer }, level: 'warn' });
+    }
+    if (p.index === 0) items.push({ key: 'lab.tombNote' });
+    show('lab-status', items);
+  }
+
+  function renderLab() {
+    const p = C.labProblem(labIndex);
+    if (labMarks.length !== p.letters) labMarks = new Array(p.letters).fill(false);
+    $('lab-title').textContent = p.index === 0 ? t('lab.tomb', { letters: p.letters }) : t('lab.problem', { n: p.index, letters: p.letters });
+    $('lab-letters').replaceChildren(...p.tokens.map((tk) => {
+      if (tk.space) return el('span', 'lab-gap', ' ');
+      const btn = el('button', `lab-letter ${tk.b ? 'form-b' : 'form-a'}`, tk.ch);
+      btn.type = 'button';
+      btn.setAttribute('aria-pressed', String(labMarks[tk.index]));
+      btn.setAttribute('aria-label', t('lab.letterLabel', { n: tk.index + 1, ch: tk.ch }));
+      if (labChecked && labMarks[tk.index] !== tk.b) btn.classList.add('lab-wrong');
+      btn.addEventListener('click', () => {
+        labMarks[tk.index] = !labMarks[tk.index];
+        btn.setAttribute('aria-pressed', String(labMarks[tk.index]));
+        btn.classList.remove('lab-wrong');
+        labChecked = false;
+        updateLab();
+      });
+      return btn;
+    }));
+    updateLab();
   }
 
   // ===== 対応表 =====
@@ -356,6 +447,7 @@
     renderEmbed();
     renderExtract();
     renderSolve();
+    renderLab();
     renderTable();
   };
 
@@ -383,7 +475,7 @@
   });
   $('btn-embed-to-extract').addEventListener('click', () => {
     if (!lastEmbed) return;
-    const rich = lastEmbed.method === 'bold' || lastEmbed.method === 'italic';
+    const rich = RICH.includes(lastEmbed.method);
     $('extract-in').value = rich ? lastEmbed.html : lastEmbed.text;
     $('extract-method').value = lastEmbed.method;
     if ($('embed-kind').value === 'text') $('extract-variant').value = lastEmbed.variant;
@@ -395,6 +487,22 @@
   $('btn-solve-sample').addEventListener('click', () => {
     $('solve-in').value = C.makeSample($('solve-sample').value);
     renderSolve();
+  });
+
+  $('btn-lab-check').addEventListener('click', () => {
+    labChecked = true;
+    renderLab();
+  });
+  $('btn-lab-reset').addEventListener('click', () => {
+    labMarks = [];
+    labChecked = false;
+    renderLab();
+  });
+  $('btn-lab-next').addEventListener('click', () => {
+    labIndex = (labIndex + 1) % C.LAB_COUNT;
+    labMarks = [];
+    labChecked = false;
+    renderLab();
   });
 
   $('btn-lang').addEventListener('click', () => {

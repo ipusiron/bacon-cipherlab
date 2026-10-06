@@ -415,6 +415,92 @@ h1 {
 .zw-a { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--field-border); }
 .zw-b { background: var(--accent-weak); color: var(--accent-text); border: 1px solid var(--accent); }
 
+/* ========== Routes（生存性） ========== */
+.table-wrap {
+  margin: 12px 0 0;
+  overflow-x: auto;
+}
+
+.route-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+
+.route-table th,
+.route-table td {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.route-table thead th { background: var(--surface); }
+.route-table thead th:first-child { width: 22%; }
+.route-table tbody th { font-weight: 600; }
+.route-look { color: var(--muted); }
+.route-yes { background: var(--ok-bg); color: var(--ok-text); }
+.route-no { background: var(--warn-bg); color: var(--warn-text); }
+
+/* ========== Biform（二書体） ========== */
+.plate { margin: 12px 0 16px; }
+
+.plate img {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.plate figcaption {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.lab-title {
+  margin: 8px 0 0;
+  font-weight: 700;
+}
+
+.lab-letters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.lab-letter {
+  min-width: 44px;
+  min-height: 52px;
+  padding: 4px 6px;
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lab-letter[aria-pressed="true"] {
+  border: 2px solid var(--accent);
+  background: var(--accent-weak);
+}
+
+.lab-letter.lab-wrong { box-shadow: 0 0 0 3px var(--warn-text); }
+.lab-gap { width: 16px; }
+
+/* 二書体の2つの書体（計算部の FONT_A・FONT_B と同じ並び）。.lab-letter より後ろに置いて書体を決める */
+.form-a { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
+.form-b { font-family: Georgia, 'Times New Roman', Times, serif; }
+
 /* ========== Solve ========== */
 .results {
   margin: 12px 0 0;

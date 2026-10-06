@@ -333,6 +333,21 @@ h1 {
   cursor: pointer;
 }
 
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+a.btn[aria-disabled="true"] {
+  background: var(--surface);
+  color: var(--muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.result-label { font-weight: 700; }
+
 .btn.ghost {
   background: var(--card);
   color: var(--text);

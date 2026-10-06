@@ -280,6 +280,8 @@
             <textarea id="extract-bits" class="text-area mono" rows="4" readonly spellcheck="false"></textarea>
             <div class="actions">
               <button type="button" id="btn-extract-copy" class="btn" data-i18n="extract.copy">メッセージをコピー</button>
+              <a id="extract-wsi" class="btn ghost" href="https://ipusiron.github.io/weirdstring-inspector/" target="_blank" rel="noopener noreferrer"
+                data-i18n="zw.link">WeirdString Inspectorで詳しく見る</a>
             </div>
             <div id="extract-status" class="status" aria-live="polite"></div>
           </div>
@@ -316,6 +318,30 @@
           <summary data-i18n="solve.statsTitle">読み方ごとの統計</summary>
           <ul id="solve-stats" class="stats-list"></ul>
         </details>
+      </div>
+      <div class="card">
+        <h2 data-i18n="zw.title">見えない文字を調べる</h2>
+        <p class="lead" data-i18n="zw.lead">上の「調べる文」に含まれる見えない文字（ゼロ幅文字など）を数え、どのツールの方式で作られた文かを見分けます。読める方式なら、隠された文も示します。見分ける方式は、このツール・Steganographr・330k・StegCloak・タグ文字です。</p>
+        <div class="options">
+          <div class="option">
+            <label class="field-label" for="zw-sample" data-i18n="zw.sampleLabel">見えない文字の例</label>
+            <select id="zw-sample" class="select">
+              <option value="bacon" data-i18n="zwSample.bacon">このツール（ゼロ幅文字）</option>
+              <option value="steganographr" data-i18n="zwSample.steganographr">Steganographrの方式</option>
+              <option value="k330" data-i18n="zwSample.k330">330kの方式（既定の4文字）</option>
+              <option value="tags" data-i18n="zwSample.tags">タグ文字</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" id="btn-zw-sample" class="btn ghost" data-i18n="zw.sampleButton">例を入れる</button>
+          <a id="zw-wsi" class="btn ghost" href="https://ipusiron.github.io/weirdstring-inspector/" target="_blank" rel="noopener noreferrer"
+            data-i18n="zw.link">WeirdString Inspectorで詳しく見る</a>
+        </div>
+        <p class="hint" data-i18n="zw.linkNote">WeirdString Inspector（Day023）は、見えない文字や似た形の文字を1字ずつ示すツールです。文はURLの#以降に入れて渡すので、サーバーへは送られませんが、ブラウザーの履歴には残ります。</p>
+        <div id="zw-status" class="status" aria-live="polite"></div>
+        <ul id="zw-counts" class="stats-list"></ul>
+        <ol id="zw-schemes" class="results"></ol>
       </div>
     </section>
 

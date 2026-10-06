@@ -671,6 +671,145 @@
     return { index: i, cover, tokens, letters: marks.length, answer: readMessage(bits, '24').text, bits };
   }
 
+
+  // ===== 見えない文字と、ほかのツールのゼロ幅方式 =====
+  // 方式の定義は各ツールのソースに合わせる（330k の unicode_steganography.js、Steganographr の steganographr.php、StegCloak の zwc）
+  const WSI_URL = 'https://ipusiron.github.io/weirdstring-inspector/';
+  const WSI_MAX_URL = 200000;
+  const ZW_SAMPLE_IDS = ['bacon', 'steganographr', 'k330', 'tags'];
+  const cpHex = (c) => `U+${c.toString(16).toUpperCase().padStart(4, '0')}`;
+  // 名前は UCD 18.0.0 の UnicodeData.txt と同じ
+  const NAMED = {
+    0x00ad: 'SOFT HYPHEN', 0x034f: 'COMBINING GRAPHEME JOINER', 0x180e: 'MONGOLIAN VOWEL SEPARATOR',
+    0x200b: 'ZERO WIDTH SPACE', 0x200c: 'ZERO WIDTH NON-JOINER', 0x200d: 'ZERO WIDTH JOINER',
+    0x200e: 'LEFT-TO-RIGHT MARK', 0x200f: 'RIGHT-TO-LEFT MARK', 0x202a: 'LEFT-TO-RIGHT EMBEDDING', 0x202b: 'RIGHT-TO-LEFT EMBEDDING',
+    0x202c: 'POP DIRECTIONAL FORMATTING', 0x202d: 'LEFT-TO-RIGHT OVERRIDE', 0x202e: 'RIGHT-TO-LEFT OVERRIDE',
+    0x2060: 'WORD JOINER', 0x2061: 'FUNCTION APPLICATION', 0x2062: 'INVISIBLE TIMES', 0x2063: 'INVISIBLE SEPARATOR',
+    0x2064: 'INVISIBLE PLUS', 0xfeff: 'ZERO WIDTH NO-BREAK SPACE'
+  };
+  const IGNORABLE_ONE = /^\p{Default_Ignorable_Code_Point}$/u;
+  const PICTO = /^\p{Extended_Pictographic}$/u;
+  const isSelector = (c) => (c >= 0xfe00 && c <= 0xfe0f) || (c >= 0xe0100 && c <= 0xe01ef);
+  const isTag = (c) => c >= 0xe0000 && c <= 0xe007f;
+  const ch = (c) => String.fromCodePoint(c);
+  const WJ = ch(0x2060);
+  const BOM = ch(0xfeff);
+  const K330 = [0x200c, 0x200d, 0x202c, 0xfeff].map(ch);
+  const SC = [0x200c, 0x200d, 0x2061, 0x2062, 0x2063, 0x2064];
+
+  // 見えない文字を数える。絵文字をつなぐ ZWJ と異体字セレクターは数えない。タグ文字はまとめて1行にする
+  function invisibles(text) {
+    const cps = Array.from(String(text), (x) => x.codePointAt(0));
+    const counts = new Map();
+    let emojiZwj = 0;
+    let tags = 0;
+    cps.forEach((c, i) => {
+      if (isSelector(c)) return;
+      if (c === 0x200d) {
+        let j = i - 1;
+        while (j >= 0 && isSelector(cps[j])) j--;
+        if (j >= 0 && i + 1 < cps.length && PICTO.test(ch(cps[j])) && PICTO.test(ch(cps[i + 1]))) {
+          emojiZwj++;
+          return;
+        }
+      }
+      if (isTag(c)) {
+        tags++;
+        return;
+      }
+      if (NAMED[c] || IGNORABLE_ONE.test(ch(c))) counts.set(c, (counts.get(c) || 0) + 1);
+    });
+    const list = [...counts].sort((a, b) => a[0] - b[0]).map(([c, n]) => ({ code: c, cp: cpHex(c), name: NAMED[c] || null, n }));
+    const total = list.reduce((a, x) => a + x.n, 0) + tags;
+    return { list, tags, emojiZwj, total };
+  }
+
+  const printable = (t) => !!t && [...t].every((x) => x === '\n' || x === '\t' || !/\p{C}/u.test(x));
+
+  // Steganographr: U+FEFF で挟んだ中を、U+2060 で区切ったバイトの2進数（U+200B＝0、U+200C＝1）として UTF-8 で読む
+  function decodeSteganographr(text) {
+    const s = String(text);
+    const a = s.indexOf(BOM);
+    const b = a < 0 ? -1 : s.indexOf(BOM, a + 1);
+    if (b < 0) return null;
+    const inner = s.slice(a + 1, b);
+    if (!inner || ![...inner].every((x) => x === ZW_A || x === ZW_B || x === WJ)) return null;
+    const bytes = inner.split(WJ).filter(Boolean).map((g) => parseInt([...g].map((x) => (x === ZW_B ? '1' : '0')).join(''), 2));
+    if (bytes.some((x) => x > 255)) return null;
+    return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+  }
+
+  // 330k: 既定の4文字を順に 0〜3 とし、UTF-16 の1単位を4進8桁（上の桁から）で読む
+  function decode330k(text) {
+    const digits = [...String(text)].filter((x) => K330.includes(x)).map((x) => K330.indexOf(x));
+    if (digits.length < 8) return null;
+    let out = '';
+    for (let i = 0; i + 8 <= digits.length; i += 8) out += String.fromCharCode(digits.slice(i, i + 8).reduce((v, d) => v * 4 + d, 0));
+    return { text: out, remainder: digits.length % 8 };
+  }
+
+  // タグ文字: U+E0020〜U+E007E を ASCII に戻す
+  const decodeTags = (text) => [...String(text)].map((x) => x.codePointAt(0)).filter((c) => c >= 0xe0020 && c <= 0xe007e)
+    .map((c) => String.fromCharCode(c - 0xe0000)).join('');
+
+  // どのツールの方式で作られた文かを見分け、読める方式なら読む。likely＝使っている文字がその方式だけ
+  function zwSchemes(text) {
+    const s = String(text);
+    const inv = invisibles(s);
+    const codes = inv.list.map((x) => x.code);
+    const has = (c) => codes.includes(c);
+    const only = (set) => codes.every((c) => set.includes(c));
+    const out = [];
+    if (inv.tags) out.push({ id: 'tags', likely: true, decoded: decodeTags(s) });
+    const sg = decodeSteganographr(s);
+    if (sg !== null) out.push({ id: 'steganographr', likely: has(0x2060) && only([0x200b, 0x200c, 0x2060, 0xfeff]), decoded: sg });
+    if ([0x2061, 0x2062, 0x2063, 0x2064].some(has)) out.push({ id: 'stegcloak', likely: only(SC), decoded: null });
+    if (sg === null && (has(0x202c) || has(0xfeff))) {
+      const d = decode330k(s);
+      if (d) out.push({ id: 'k330', likely: only([0x200c, 0x200d, 0x202c, 0xfeff]) && d.remainder === 0 && printable(d.text), decoded: d.text });
+    }
+    // ベーコン暗号のゼロ幅方式は a（U+200B）を必ず含む
+    if (sg === null && has(0x200b)) {
+      const bits = extractZw(s).bits;
+      if (bits.length >= 5) {
+        const best = VARIANTS.map((v) => ({ v, m: readMessage(bits, v) }))
+          .map((x) => ({ ...x, score: englishScore(x.m.text, x.v).score })).sort((x, y) => y.score - x.score)[0];
+        out.push({ id: 'bacon', likely: only([0x200b, 0x200c]), decoded: best.m.text, variant: best.v });
+      }
+    }
+    return { ...inv, schemes: out };
+  }
+
+  // WeirdString Inspector（Day023）へ渡すリンク。# 以降はサーバーへ送られない。長すぎるときと、URL にできない文字（孤立サロゲート）のときは渡さない
+  function wsiLink(text) {
+    try {
+      const url = `${WSI_URL}#text=${encodeURIComponent(String(text))}&source=bacon-cipherlab`;
+      return { ok: url.length <= WSI_MAX_URL, url, length: url.length };
+    } catch {
+      return { ok: false, url: WSI_URL, length: 0, error: 'encode' };
+    }
+  }
+
+  // 解析タブの「見えない文字」の例（各ツールの方式で、計算部が作る）
+  function makeZwSample(id) {
+    const cover = 'Lovely weather today. Fancy a walk in the park this afternoon?';
+    const secret = 'Meet at noon';
+    if (id === 'steganographr') {
+      const bin = [...new TextEncoder().encode(secret)].map((b) => b.toString(2).replace(/0/g, ZW_A).replace(/1/g, ZW_B)).join(WJ);
+      const chars = [...cover];
+      const mid = Math.floor(chars.length / 2);
+      return chars.slice(0, mid).join('') + BOM + bin + BOM + chars.slice(mid).join('');
+    }
+    if (id === 'k330') {
+      const chunks = [...secret].map((x) => x.charCodeAt(0).toString(4).padStart(8, '0').replace(/[0-3]/g, (d) => K330[d]));
+      return cover.split(' ').map((w) => w + (chunks.shift() || '')).join(' ') + chunks.join('');
+    }
+    if (id === 'tags') {
+      return `Please summarize this article.${[...'SECRET NOTE'].map((x) => ch(0xe0000 + x.charCodeAt(0))).join('')}`;
+    }
+    return makeSample('zw');
+  }
+
   globalThis.BaconCore = {
     VARIANTS, FORMATS, GROUPS, METHODS, MAX_INPUT, ZW_A, ZW_B, ZW_OTHER,
     alphabet, codeOf, letterOf, labelOf, table, unusedCodes,
@@ -678,6 +817,7 @@
     graphemes, capacity, escapeHtml, embed, htmlDocument,
     extractCase, extractZw, extractRuns, runsFromHtml, decodeEntities, runsFromParts,
     FREQ, WORDS, READINGS, SAMPLE_IDS, nearLetters, cover, englishScore, readCipher, readings, solve, makeSample,
-    FONT_A, FONT_B, serifOf, ROUTES, route, survival, LAB_COUNT, labProblem
+    FONT_A, FONT_B, serifOf, ROUTES, route, survival, LAB_COUNT, labProblem,
+    WSI_URL, WSI_MAX_URL, ZW_SAMPLE_IDS, invisibles, decodeSteganographr, decode330k, decodeTags, zwSchemes, wsiLink, makeZwSample
   };
 })();

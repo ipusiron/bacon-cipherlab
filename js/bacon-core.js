@@ -238,6 +238,101 @@
     return { bits, carriers: bits.length };
   }
 
+  // ===== HTML を「文字列と太字・斜体の印」の並びにする =====
+  // ブラウザーの HTML 解析器で文書を作ると、CSP の下で style 属性を読むたびに違反が報告されるので、DOM を使わずに字句だけを読む。
+  // 太字＝b・strong・class="bacon-bold"・font-weight（bold・bolder・600以上。normal・400 で戻る）、
+  // 斜体＝i・em・class="bacon-italic"・font-style（italic・oblique。normal で戻る）。script・style などの中身は読まない
+  const VOID = ['area', 'base', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'];
+  const RAW = ['script', 'style', 'template', 'noscript', 'title', 'head', 'textarea'];
+  const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: String.fromCharCode(0xa0) };
+  const TAG = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/y;
+  const ATTR = /([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+  const WEIGHT = /(?:^|;)\s*font-weight\s*:\s*([a-z0-9]+)/;
+  const SLANT = /(?:^|;)\s*font-style\s*:\s*([a-z]+)/;
+
+  function decodeEntities(s) {
+    return s.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, v) => {
+      if (v[0] === '#') {
+        const n = /^#x/i.test(v) ? parseInt(v.slice(2), 16) : parseInt(v.slice(1), 10);
+        return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : m;
+      }
+      const k = v.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(ENTITIES, k) ? ENTITIES[k] : m;
+    });
+  }
+
+  function attrsOf(s) {
+    const out = {};
+    for (const m of s.matchAll(ATTR)) out[m[1].toLowerCase()] = decodeEntities(m[2] ?? m[3] ?? m[4] ?? '');
+    return out;
+  }
+
+  function runsFromHtml(html) {
+    const s = String(html);
+    const lower = s.toLowerCase();
+    const runs = [];
+    const stack = [{ tag: '', bold: false, italic: false }];
+    const top = () => stack[stack.length - 1];
+    const push = (text) => {
+      if (text) runs.push({ text: decodeEntities(text), bold: top().bold, italic: top().italic });
+    };
+    let i = 0;
+    while (i < s.length) {
+      const lt = s.indexOf('<', i);
+      if (lt < 0) {
+        push(s.slice(i));
+        break;
+      }
+      push(s.slice(i, lt));
+      if (s.startsWith('<!--', lt)) {
+        const end = s.indexOf('-->', lt + 4);
+        i = end < 0 ? s.length : end + 3;
+        continue;
+      }
+      if (s.startsWith('<!', lt) || s.startsWith('<?', lt)) {
+        const end = s.indexOf('>', lt);
+        i = end < 0 ? s.length : end + 1;
+        continue;
+      }
+      TAG.lastIndex = lt;
+      const m = TAG.exec(s);
+      if (!m) {
+        push('<');
+        i = lt + 1;
+        continue;
+      }
+      i = lt + m[0].length;
+      const tag = m[2].toLowerCase();
+      if (m[1]) {
+        const k = stack.map((x) => x.tag).lastIndexOf(tag);
+        if (k > 0) stack.length = k;
+        continue;
+      }
+      if (RAW.includes(tag)) {
+        const end = lower.indexOf(`</${tag}`, i);
+        const close = end < 0 ? -1 : s.indexOf('>', end);
+        i = close < 0 ? s.length : close + 1;
+        continue;
+      }
+      if (tag === 'br') {
+        push('\n');
+        continue;
+      }
+      if (VOID.includes(tag) || /\/\s*$/.test(m[3])) continue;
+      const { class: klass = '', style: inline = '' } = attrsOf(m[3]);
+      const cls = String(klass).split(/\s+/);
+      const style = String(inline).toLowerCase();
+      let bold = top().bold || tag === 'b' || tag === 'strong' || cls.includes('bacon-bold');
+      let italic = top().italic || tag === 'i' || tag === 'em' || cls.includes('bacon-italic');
+      const w = style.match(WEIGHT);
+      if (w) bold = w[1] === 'bold' || w[1] === 'bolder' || parseInt(w[1], 10) >= 600;
+      const sl = style.match(SLANT);
+      if (sl) italic = sl[1] === 'italic' || sl[1] === 'oblique';
+      stack.push({ tag, bold, italic });
+    }
+    return runs;
+  }
+
   // embed() の parts を extractRuns() の形にする（テストと画面のプレビューで使う）
   const runsFromParts = (parts, method) => parts.map((p) => ({ text: p.text, bold: method === 'bold' && p.mark, italic: method === 'italic' && p.mark }));
 
@@ -246,6 +341,6 @@
     alphabet, codeOf, letterOf, labelOf, table, unusedCodes,
     encode, formatBits, invertBits, parseCipher, decode, readMessage,
     graphemes, capacity, escapeHtml, embed, htmlDocument,
-    extractCase, extractZw, extractRuns, runsFromParts
+    extractCase, extractZw, extractRuns, runsFromHtml, decodeEntities, runsFromParts
   };
 })();

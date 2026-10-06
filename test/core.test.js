@@ -213,6 +213,35 @@ test('往復: 4方式 × 2版 × 乱数のメッセージで、埋め込んで�
   assert.equal(n, 2 * 20 * 7);
 });
 
+// runs を「印の付いた字」の a/b 列にする（空白以外）
+const marks = (runs, key) => runs.map((r) => [...r.text].filter((c) => !/\s/.test(c)).map(() => (r[key] ? 'b' : 'a')).join('')).join('');
+
+test('HTML の読み取り: b・strong・i・em・class・style（Word・Google ドキュメントの書き方）', () => {
+  const word = "<p class=MsoNormal><b style='mso-bidi-font-weight:normal'>K</b>n<b>O</b>wl e<span style=\"font-weight:700\">d</span>Ge "
+    + '<b style="font-weight:normal">I</b>s <strong>p</strong><span class="x bacon-bold">O</span>w<span style="color:red;font-weight: bolder">E</span>r</p>';
+  assert.equal(marks(C.runsFromHtml(word), 'bold'), 'babaaabaaaabbaba');
+  const it = '<em>a</em>b<i>c<span style="font-style:normal">d</span></i><span style="font-style: oblique">e</span><span class="bacon-italic">f</span>';
+  assert.equal(marks(C.runsFromHtml(it), 'italic'), 'bababb');
+  assert.equal(marks(C.runsFromHtml('<b>x<i>y</i></b>z'), 'italic'), 'aba');
+});
+
+test('HTML の読み取り: 文字参照・コメント・script や style の中身・閉じ忘れ・タグでない「<」', () => {
+  const runs = C.runsFromHtml('A&amp;B&#x41;&#66;&nbsp;&bogus;<!-- <b>no</b> --><script>var b="<b>x</b>"</script><style>b{}</style>'
+    + '<b>bold<br>still</p>end</b> 1 < 2 <i/>x<img src=x alt="<b>">');
+  assert.equal(runs.map((r) => r.text).join(''), `A&BAB${String.fromCharCode(0xa0)}&bogus;bold\nstillend 1 < 2 x`);
+  assert.deepEqual(runs.filter((r) => r.bold).map((r) => r.text), ['bold', '\n', 'still', 'end']);
+  assert.equal(C.decodeEntities('&#xD800;&#0;&#x1F953;'), `&#xD800;&#0;${cp(0x1f953)}`);
+});
+
+test('HTML の読み取り: 埋め込みの HTML（b・i と <br>）をそのまま読み戻せる', () => {
+  for (const method of ['bold', 'italic']) {
+    const bits = C.encode('Fuge', '24').bits;
+    const r = C.embed('Manere te volo\ndonec venero <script> & more letters here', bits, method);
+    const x = C.extractRuns(C.runsFromHtml(r.html), method);
+    assert.equal(C.readMessage(x.bits, '24').text, 'FUGE', method);
+  }
+});
+
 test('ダウンロード用の HTML 文書は、題名をエスケープし、スクリプトを含まない', () => {
   const doc = C.htmlDocument('<b>x</b>', { lang: 'en', title: '<script>' });
   assert.match(doc, /^<!DOCTYPE html>\n<html lang="en">/);

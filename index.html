@@ -1,286 +1,292 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Bacon CipherLab - ベーコン暗号の変換と、カバーテキストへの埋め込み・抽出（大小・太字・斜体・ゼロ幅文字）を体験できるツール">
+  <meta name="author" content="ipusiron">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:,">
+  <script src="js/theme-init.js"></script>
   <title>Bacon CipherLab</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="dark light" />
-  <meta name="description" content="ベーコン暗号（Bacon's Cipher）をテーマにした学習・体験用のWebツール" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="X-Frame-Options" content="DENY">
-  <meta http-equiv="X-XSS-Protection" content="1; mode=block">
-  <meta name="referrer" content="no-referrer-when-downgrade">
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-title">
+  <header class="site-header">
+    <div class="header-row">
+      <div class="header-spacer"></div>
       <h1>🥓 Bacon CipherLab</h1>
-      <p class="subtitle">ベーコン暗号（Bacon's Cipher）をテーマにした学習・体験用のWebツール</p>
+      <div class="header-actions">
+        <button type="button" id="btn-lang" class="icon-btn" data-i18n="ui.langButton" data-i18n-attr="aria-label:ui.langLabel;title:ui.langLabel"
+          aria-label="Switch to English" title="Switch to English">English</button>
+        <button type="button" id="btn-theme" class="icon-btn" aria-label="ダークモードに切り替える" title="ダークモードに切り替える">🌙</button>
+      </div>
     </div>
+    <p class="subtitle" data-i18n="ui.subtitle">ベーコン暗号の変換と、カバーテキストへの埋め込み・抽出（大小・太字・斜体・ゼロ幅文字）を体験できるツール</p>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="Bacon CipherLab Tabs">
-    <button class="tab active" data-tab="encode" role="tab" aria-selected="true">Encrypt</button>
-    <button class="tab" data-tab="decode" role="tab" aria-selected="false">Decrypt</button>
-    <button class="tab" data-tab="embed" role="tab" aria-selected="false">Cover Embed</button>
-    <button class="tab" data-tab="extract" role="tab" aria-selected="false">Cover Extract</button>
-    <button class="tab" data-tab="matrix" role="tab" aria-selected="false">Matrix</button>
+  <noscript><p class="noscript" data-i18n="ui.noscript">このページはJavaScriptで動きます。JavaScriptを有効にしてから開き直してください。</p></noscript>
+
+  <nav class="tabs" role="tablist" data-i18n-attr="aria-label:ui.tabsLabel" aria-label="表示の切り替え">
+    <button type="button" class="tab-btn" role="tab" id="tab-encode" data-tab="encode" aria-controls="panel-encode" aria-selected="true"
+      data-i18n="tab.encode">暗号化</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-decode" data-tab="decode" aria-controls="panel-decode" aria-selected="false" tabindex="-1"
+      data-i18n="tab.decode">復号</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-embed" data-tab="embed" aria-controls="panel-embed" aria-selected="false" tabindex="-1"
+      data-i18n="tab.embed">埋め込み</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-extract" data-tab="extract" aria-controls="panel-extract" aria-selected="false" tabindex="-1"
+      data-i18n="tab.extract">抽出</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-table" data-tab="table" aria-controls="panel-table" aria-selected="false" tabindex="-1"
+      data-i18n="tab.table">対応表</button>
   </nav>
 
-  <main>
-    <!-- Encrypt -->
-    <section id="encode" class="panel active" aria-labelledby="Encrypt">
-      <div class="grid two">
-        <div>
-          <h2>Encrypt（暗号化）</h2>
-          <label class="field field-with-stats">
-            <span>平文テキスト</span>
-            <span class="field-stats" id="statsEncInput">文字数: 0</span>
-            <textarea id="encPlain" rows="8" placeholder="HELLO WORLD"></textarea>
-          </label>
-
-          <div class="row">
-            <label>バリアント
-              <select id="variantEnc">
-                <option value="24">24 letters (I/J, U/V combined)</option>
-                <option value="26">26 letters</option>
-              </select>
-            </label>
-
-            <label>出力形式
-              <select id="formatEnc">
-                <option value="01">0/1</option>
-                <option value="AB">A/B</option>
-                <option value="ab">a/b</option>
-              </select>
-            </label>
-
-            <label>ブロック
-              <select id="groupEnc">
-                <option value="none">区切りなし</option>
-                <option value="5">5文字ごと</option>
-                <option value="10">10文字ごと</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="actions">
-            <button class="btn" id="btnEncode">ENCRYPT ⏵</button>
-          </div>
-        </div>
-
-        <div>
-          <div class="output-header">
-            <h3>結果</h3>
-            <span class="field-stats" id="statsEncOutput">ビット数: 0</span>
-          </div>
-          <textarea id="encOut" rows="12" readonly></textarea>
-          <div class="actions">
-            <button class="btn ghost" id="btnCopyEnc">コピー</button>
-            <button class="btn ghost" id="btnDownloadEnc">ダウンロード</button>
-          </div>
-          <details class="sidecard">
-            <summary>対応（ライブ）</summary>
-            <div id="encMapLive" class="mono small"></div>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <!-- Decrypt -->
-    <section id="decode" class="panel" aria-labelledby="Decrypt">
-      <div class="grid two">
-        <div>
-          <h2>Decrypt（復号）</h2>
-          <label class="field field-with-stats">
-            <span>暗号列（0/1、A/B、a/b形式）</span>
-            <span class="field-stats" id="statsDec">ビット長: 0（5の倍数推奨）</span>
-            <textarea id="decCipher" rows="10" placeholder="00110 00101 ... または AABBA AABAA ... または aabba aabaa ..."></textarea>
-          </label>
-
-          <div class="row">
-            <label>バリアント
-              <select id="variantDec">
-                <option value="24">24 letters (I/J, U/V combined)</option>
-                <option value="26">26 letters</option>
-              </select>
-            </label>
-            <label><input type="checkbox" id="skipInvalid" checked /> 無効文字スキップ</label>
-          </div>
-
-          <div class="actions">
-            <button class="btn" id="btnDecode">⏴ DECRYPT</button>
-          </div>
-        </div>
-
-        <div>
-          <h3>復号テキスト</h3>
-          <textarea id="decOut" rows="12" readonly></textarea>
-          <div class="actions">
-            <button class="btn ghost" id="btnCopyDec">コピー</button>
-            <button class="btn ghost" id="btnDownloadDec">ダウンロード</button>
-          </div>
-          <details class="sidecard">
-            <summary>途中経過</summary>
-            <div id="decSteps" class="mono small"></div>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <!-- Embed -->
-    <section id="embed" class="panel" aria-labelledby="Cover Embed">
-      <div class="grid two">
-        <div>
-          <h2>Cover Embed（埋め込み）</h2>
-          <label class="field">
-            <span>カバーテキスト（リッチ表示は右プレビュー）</span>
-            <textarea id="coverText" rows="7" placeholder="ここにニュース記事や文章を貼り付け"></textarea>
-          </label>
-
-          <div class="stack">
-            <fieldset>
-              <legend>メッセージ（平文 → AB へ変換）</legend>
-              <label class="field">
-                <span>平文</span>
-                <input id="coverMsg" placeholder="HIDE THIS" />
-              </label>
-              <div class="row">
-                <label>バリアント
-                  <select id="variantCover">
-                    <option value="24">24 letters</option>
-                    <option value="26">26 letters</option>
-                  </select>
-                </label>
-                <button class="btn tiny" id="btnMsgToAB">平文→A/B</button>
+  <main class="container">
+    <!-- 暗号化 -->
+    <section id="panel-encode" class="panel" role="tabpanel" aria-labelledby="tab-encode">
+      <div class="card">
+        <h2 data-i18n="encode.title">暗号化（平文 → 暗号文）</h2>
+        <p class="lead" data-i18n="encode.lead">英字を1文字ずつ、aとbを5つ並べた符号に置き換えます。入力のたびに結果が変わります。</p>
+        <div class="grid two">
+          <div>
+            <label class="field-label" for="enc-plain" data-i18n="encode.plainLabel">平文（英字）</label>
+            <textarea id="enc-plain" class="text-area mono" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+            <div class="options">
+              <div class="option">
+                <label class="field-label" for="enc-variant" data-i18n="label.variant">版</label>
+                <select id="enc-variant" class="select">
+                  <option value="24" data-i18n="opt.v24">24文字版（ベーコンの表）</option>
+                  <option value="26" data-i18n="opt.v26">26文字版（後世の変種）</option>
+                </select>
               </div>
-            </fieldset>
-
-            <div class="or">または</div>
-
-            <label class="field">
-              <span>直接 A/B を入力</span>
-              <input id="coverAB" placeholder="AABBAAABA..." />
-            </label>
+              <div class="option">
+                <label class="field-label" for="enc-format" data-i18n="label.format">記号</label>
+                <select id="enc-format" class="select">
+                  <option value="ab">a/b</option>
+                  <option value="AB">A/B</option>
+                  <option value="01">0/1</option>
+                </select>
+              </div>
+              <div class="option">
+                <label class="field-label" for="enc-group" data-i18n="label.group">区切り</label>
+                <select id="enc-group" class="select">
+                  <option value="5" data-i18n="opt.group5">5文字ごと</option>
+                  <option value="10" data-i18n="opt.group10">10文字ごと</option>
+                  <option value="none" data-i18n="opt.groupNone">区切りなし</option>
+                </select>
+              </div>
+            </div>
           </div>
-
-          <div class="row">
-            <label>埋め込み方式
-              <select id="embedMethod">
-                <option value="case">A=小文字 / B=大文字（推奨: プレーンテキスト運用）</option>
-                <option value="bold">A=通常 / B=太字（HTMLリッチ）</option>
-                <option value="italic">A=通常 / B=斜体（HTMLリッチ）</option>
-                <option value="zw">A=U+200B / B=U+200C（ゼロ幅・不可視）</option>
-              </select>
-            </label>
+          <div>
+            <label class="field-label" for="enc-out" data-i18n="encode.outLabel">暗号文</label>
+            <textarea id="enc-out" class="text-area mono" rows="6" readonly spellcheck="false"></textarea>
+            <div class="actions">
+              <button type="button" id="btn-enc-copy" class="btn" data-i18n="btn.copy">コピー</button>
+              <button type="button" id="btn-enc-download" class="btn ghost" data-i18n="btn.download">ダウンロード</button>
+            </div>
+            <div id="enc-status" class="status" aria-live="polite"></div>
           </div>
-
-          <p class="stats" id="capacityInfo">必要容量: 0シンボル / カバー供給: 0</p>
-
-          <div class="actions">
-            <button class="btn" id="btnEmbed">埋め込む</button>
-            <button class="btn ghost" id="btnCopyEmbedPlain">プレーンコピー</button>
-            <button class="btn ghost" id="btnCopyEmbedHTML">HTMLコピー</button>
-            <button class="btn ghost" id="btnDownloadEmbed">ダウンロード(html)</button>
-          </div>
-
-          <p class="hint small">※ ゼロ幅方式はSNS/CMSで消える場合があります。配信前に必ず自己検証してください。</p>
         </div>
+        <details class="sidecard">
+          <summary data-i18n="encode.pairs">1文字ずつの対応</summary>
+          <ol id="enc-pairs" class="pairs mono"></ol>
+        </details>
+      </div>
+    </section>
 
-        <div>
-          <h3>プレビュー</h3>
-          <div id="embedPreview" class="preview"></div>
-          <details class="sidecard">
-            <summary>方式メタ（JSON）</summary>
-            <pre id="embedMeta" class="mono small"></pre>
-          </details>
+    <!-- 復号 -->
+    <section id="panel-decode" class="panel" role="tabpanel" aria-labelledby="tab-decode" hidden>
+      <div class="card">
+        <h2 data-i18n="decode.title">復号（暗号文 → 平文）</h2>
+        <p class="lead" data-i18n="decode.lead">a/b・A/B・0/1のどれで書いた暗号文も読めます。空白は区切りとして読み飛ばします。</p>
+        <div class="grid two">
+          <div>
+            <label class="field-label" for="dec-in" data-i18n="decode.inLabel">暗号文（a/b・A/B・0/1）</label>
+            <textarea id="dec-in" class="text-area mono" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+            <div class="options">
+              <div class="option">
+                <label class="field-label" for="dec-variant" data-i18n="label.variant">版</label>
+                <select id="dec-variant" class="select">
+                  <option value="24" data-i18n="opt.v24">24文字版（ベーコンの表）</option>
+                  <option value="26" data-i18n="opt.v26">26文字版（後世の変種）</option>
+                </select>
+              </div>
+            </div>
+            <label class="check-row" for="dec-skip">
+              <input type="checkbox" id="dec-skip" checked>
+              <span data-i18n="decode.skip">a/b・A/B・0/1と空白以外の文字を飛ばす</span>
+            </label>
+          </div>
+          <div>
+            <label class="field-label" for="dec-out" data-i18n="decode.outLabel">平文</label>
+            <textarea id="dec-out" class="text-area mono" rows="6" readonly spellcheck="false"></textarea>
+            <div class="actions">
+              <button type="button" id="btn-dec-copy" class="btn" data-i18n="btn.copy">コピー</button>
+              <button type="button" id="btn-dec-download" class="btn ghost" data-i18n="btn.download">ダウンロード</button>
+            </div>
+            <div id="dec-status" class="status" aria-live="polite"></div>
+          </div>
+        </div>
+        <details class="sidecard">
+          <summary data-i18n="decode.steps">5ビットずつの読み</summary>
+          <ol id="dec-steps" class="pairs mono"></ol>
+        </details>
+      </div>
+    </section>
+
+    <!-- 埋め込み -->
+    <section id="panel-embed" class="panel" role="tabpanel" aria-labelledby="tab-embed" hidden>
+      <div class="card">
+        <h2 data-i18n="embed.title">埋め込み（カバーテキストに隠す）</h2>
+        <p class="lead" data-i18n="embed.lead">メッセージのa/bを、カバーテキストの「キャリア」に1つずつ割り当てます。キャリアは方式で変わります（大小＝英字、太字・斜体＝空白以外の文字、ゼロ幅＝各文字の後ろ）。</p>
+        <div class="grid two">
+          <div>
+            <label class="field-label" for="embed-cover" data-i18n="embed.coverLabel">カバーテキスト</label>
+            <textarea id="embed-cover" class="text-area" rows="6" spellcheck="false"></textarea>
+            <div class="options">
+              <div class="option">
+                <label class="field-label" for="embed-kind" data-i18n="embed.kindLabel">隠すものの書き方</label>
+                <select id="embed-kind" class="select">
+                  <option value="text" data-i18n="embed.kindText">英字のメッセージ</option>
+                  <option value="bits" data-i18n="embed.kindBits">a/b・A/B・0/1の列</option>
+                </select>
+              </div>
+              <div class="option">
+                <label class="field-label" for="embed-variant" data-i18n="label.variant">版</label>
+                <select id="embed-variant" class="select">
+                  <option value="24" data-i18n="opt.v24">24文字版（ベーコンの表）</option>
+                  <option value="26" data-i18n="opt.v26">26文字版（後世の変種）</option>
+                </select>
+              </div>
+            </div>
+            <label class="field-label" for="embed-msg" data-i18n="embed.msgLabel">隠すメッセージ</label>
+            <input type="text" id="embed-msg" class="text-input mono" maxlength="2000" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <div class="options">
+              <div class="option">
+                <label class="field-label" for="embed-method" data-i18n="embed.methodLabel">方式</label>
+                <select id="embed-method" class="select">
+                  <option value="case" data-i18n="method.case">大小（a＝小文字・b＝大文字）</option>
+                  <option value="bold" data-i18n="method.bold">太字（b＝太字）</option>
+                  <option value="italic" data-i18n="method.italic">斜体（b＝斜体）</option>
+                  <option value="zw" data-i18n="method.zw">ゼロ幅文字（a＝U+200B・b＝U+200C）</option>
+                </select>
+              </div>
+            </div>
+            <label class="check-row" for="embed-fill">
+              <input type="checkbox" id="embed-fill" checked>
+              <span data-i18n="embed.fill">メッセージより後ろの英字を小文字（a）にそろえる</span>
+            </label>
+            <label class="check-row" for="embed-reveal">
+              <input type="checkbox" id="embed-reveal">
+              <span data-i18n="embed.reveal">ゼロ幅文字の位置をプレビューに表示する</span>
+            </label>
+            <p id="embed-hint" class="hint" aria-live="polite"></p>
+          </div>
+          <div>
+            <h3 id="embed-preview-title" data-i18n="embed.previewLabel">プレビュー</h3>
+            <div id="embed-preview" class="preview" role="region" aria-labelledby="embed-preview-title"></div>
+            <div class="actions">
+              <button type="button" id="btn-embed-copy-text" class="btn" data-i18n="embed.copyText">テキストをコピー</button>
+              <button type="button" id="btn-embed-copy-html" class="btn ghost" data-i18n="embed.copyHtml">HTMLをコピー</button>
+              <button type="button" id="btn-embed-download" class="btn ghost" data-i18n="embed.download">HTMLをダウンロード</button>
+              <button type="button" id="btn-embed-to-extract" class="btn ghost" data-i18n="embed.toExtract">抽出タブで読む</button>
+            </div>
+            <div id="embed-status" class="status" aria-live="polite"></div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Extract -->
-    <section id="extract" class="panel" aria-labelledby="Cover Extract">
-      <div class="grid two">
-        <div>
-          <h2>Cover Extract（抽出）</h2>
-          <label class="field">
-            <span>埋め込み済みテキスト（HTML/プレーンどちらでもOK）</span>
-            <textarea id="extractInput" rows="10" placeholder="埋め込み済みのテキスト（ペースト）"></textarea>
-          </label>
-
-          <div class="row">
-            <label>抽出方式
-              <select id="extractMethod">
-                <option value="case">大小判定（A=小/B=大）</option>
-                <option value="bold">太字検出（B=太字）</option>
-                <option value="italic">斜体検出（B=斜体）</option>
-                <option value="zw">ゼロ幅検出（A=200B / B=200C）</option>
-              </select>
-            </label>
-
-            <label>出力
-              <select id="extractOutType">
-                <option value="AB">A/B</option>
-                <option value="01">0/1</option>
-                <option value="plain24">平文（24）</option>
-                <option value="plain26">平文（26）</option>
-              </select>
+    <!-- 抽出 -->
+    <section id="panel-extract" class="panel" role="tabpanel" aria-labelledby="tab-extract" hidden>
+      <div class="card">
+        <h2 data-i18n="extract.title">抽出（カバーテキストから読む）</h2>
+        <p class="lead" data-i18n="extract.lead">埋め込み済みのテキストを貼ると、方式に合わせてa/bを読み取り、メッセージに戻します。太字・斜体は、HTML（b・strong・i・emのタグ、font-weight・font-styleの指定）で貼ってください。</p>
+        <div class="grid two">
+          <div>
+            <label class="field-label" for="extract-in" data-i18n="extract.inLabel">埋め込み済みのテキスト</label>
+            <textarea id="extract-in" class="text-area" rows="6" spellcheck="false"></textarea>
+            <div class="options">
+              <div class="option">
+                <label class="field-label" for="extract-method" data-i18n="embed.methodLabel">方式</label>
+                <select id="extract-method" class="select">
+                  <option value="case" data-i18n="method.case">大小（a＝小文字・b＝大文字）</option>
+                  <option value="bold" data-i18n="method.bold">太字（b＝太字）</option>
+                  <option value="italic" data-i18n="method.italic">斜体（b＝斜体）</option>
+                  <option value="zw" data-i18n="method.zw">ゼロ幅文字（a＝U+200B・b＝U+200C）</option>
+                </select>
+              </div>
+              <div class="option">
+                <label class="field-label" for="extract-variant" data-i18n="label.variant">版</label>
+                <select id="extract-variant" class="select">
+                  <option value="24" data-i18n="opt.v24">24文字版（ベーコンの表）</option>
+                  <option value="26" data-i18n="opt.v26">26文字版（後世の変種）</option>
+                </select>
+              </div>
+            </div>
+            <label class="check-row" for="extract-trim">
+              <input type="checkbox" id="extract-trim" checked>
+              <span data-i18n="extract.trim">末尾の余り（aaaaaの組）を外す</span>
             </label>
           </div>
-
-          <div class="actions">
-            <button class="btn" id="btnExtract">抽出する</button>
-            <button class="btn ghost" id="btnCopyExtract">コピー</button>
+          <div>
+            <label class="field-label" for="extract-msg" data-i18n="extract.msgLabel">メッセージ</label>
+            <textarea id="extract-msg" class="text-area mono" rows="2" readonly spellcheck="false"></textarea>
+            <label class="field-label" for="extract-bits" data-i18n="extract.bitsLabel">読み取ったa/b</label>
+            <textarea id="extract-bits" class="text-area mono" rows="4" readonly spellcheck="false"></textarea>
+            <div class="actions">
+              <button type="button" id="btn-extract-copy" class="btn" data-i18n="extract.copy">メッセージをコピー</button>
+            </div>
+            <div id="extract-status" class="status" aria-live="polite"></div>
           </div>
-        </div>
-
-        <div>
-          <h3>抽出結果</h3>
-          <textarea id="extractOut" rows="12" readonly></textarea>
         </div>
       </div>
     </section>
 
-    <!-- Matrix -->
-    <section id="matrix" class="panel" aria-labelledby="Matrix">
-      <h2>対応表（Matrix）</h2>
-
-      <div class="row">
-        <label>表示モード
-          <select id="matrixVariant">
-            <option value="24">24 letters</option>
-            <option value="26" selected>26 letters</option>
-          </select>
+    <!-- 対応表 -->
+    <section id="panel-table" class="panel" role="tabpanel" aria-labelledby="tab-table" hidden>
+      <div class="card">
+        <h2 data-i18n="table.title">対応表</h2>
+        <p class="lead" data-i18n="table.lead">24文字版は、ベーコンが1623年の『De Augmentis Scientiarum』に載せた表と同じです（IとJ、UとVが同じ符号）。セルを押すと符号をコピーします。</p>
+        <div class="options">
+          <div class="option">
+            <label class="field-label" for="table-variant" data-i18n="label.variant">版</label>
+            <select id="table-variant" class="select">
+              <option value="24" data-i18n="opt.v24">24文字版（ベーコンの表）</option>
+              <option value="26" data-i18n="opt.v26">26文字版（後世の変種）</option>
+            </select>
+          </div>
+          <div class="option">
+            <label class="field-label" for="table-format" data-i18n="label.format">記号</label>
+            <select id="table-format" class="select">
+              <option value="ab">a/b</option>
+              <option value="AB">A/B</option>
+              <option value="01">0/1</option>
+              <option value="biform" data-i18n="table.biform">a＝斜体・b＝太字の見本</option>
+            </select>
+          </div>
+        </div>
+        <label class="check-row" for="table-invert">
+          <input type="checkbox" id="table-invert">
+          <span data-i18n="table.invert">aとbを入れ替えて表示する</span>
         </label>
-        <label>ビット表記
-          <select id="matrixBits">
-            <option value="01">0/1</option>
-            <option value="AB">A/B</option>
-            <option value="ab">a/b</option>
-            <option value="bold-italic">太字/斜体</option>
-          </select>
-        </label>
-        <label>
-          <input type="checkbox" id="matrixReverse" />
-          2値表記を反転する
-        </label>
+        <div id="table-grid" class="table-grid"></div>
+        <p id="table-unused" class="hint"></p>
+        <div id="table-status" class="status" aria-live="polite"></div>
       </div>
-
-      <div id="matrixTable" class="matrix"></div>
     </section>
-
   </main>
 
-  <footer>
-    <div class="footer">
-      🔗 GitHubリポジトリはこちら（ <a href="https://github.com/ipusiron/bacon-cipherlab" target="_blank" rel="noopener">ipusiron/bacon-cipherlab</a> ）
-    </div>
+  <footer class="site-footer">
+    <a href="https://github.com/ipusiron/bacon-cipherlab" target="_blank" rel="noopener noreferrer" data-i18n="ui.repo">GitHubリポジトリー（ipusiron/bacon-cipherlab）</a>
   </footer>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
+  <script src="js/bacon-core.js"></script>
+  <script src="js/messages.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/theme.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

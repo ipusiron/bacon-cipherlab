@@ -1,0 +1,256 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { core, seeded } from './load.js';
+
+const C = core();
+const cp = (...xs) => String.fromCodePoint(...xs);
+const ab = (bits) => C.formatBits(bits, 'ab');
+
+// ベーコンの表（1623年 De Augmentis Scientiarum 第6巻第1章 p.279、1640年英訳 p.266）。原典は U の行がなく V で兼ねる
+const BACON_1623 = [
+  ['A', 'aaaaa'], ['B', 'aaaab'], ['C', 'aaaba'], ['D', 'aaabb'], ['E', 'aabaa'], ['F', 'aabab'], ['G', 'aabba'], ['H', 'aabbb'],
+  ['I', 'abaaa'], ['K', 'abaab'], ['L', 'ababa'], ['M', 'ababb'], ['N', 'abbaa'], ['O', 'abbab'], ['P', 'abbba'], ['Q', 'abbbb'],
+  ['R', 'baaaa'], ['S', 'baaab'], ['T', 'baaba'], ['V', 'baabb'], ['W', 'babaa'], ['X', 'babab'], ['Y', 'babba'], ['Z', 'babbb']
+];
+
+// 孤立したサロゲート（絵文字が途中で切れた跡）の数
+function loneSurrogates(s) {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const d = s.charCodeAt(i + 1);
+      if (d >= 0xdc00 && d <= 0xdfff) i++;
+      else n++;
+    } else if (c >= 0xdc00 && c <= 0xdfff) n++;
+  }
+  return n;
+}
+
+test('24文字版の表は、ベーコンの原典（1623年）の24行と全部一致する（V は U の行、J は I の行）', () => {
+  const rows = C.table('24');
+  assert.equal(rows.length, 24);
+  BACON_1623.forEach(([letter, code], i) => {
+    const want = letter === 'V' ? 'U' : letter;
+    assert.equal(rows[i].letter, want, letter);
+    assert.equal(ab(rows[i].code), code, letter);
+    assert.equal(ab(C.codeOf(letter, '24')), code, letter);
+  });
+  assert.equal(C.codeOf('J', '24'), C.codeOf('I', '24'));
+  assert.equal(C.codeOf('V', '24'), C.codeOf('U', '24'));
+  assert.deepEqual(rows.filter((r) => r.label !== r.letter).map((r) => r.label), ['I/J', 'U/V']);
+  assert.deepEqual(C.unusedCodes('24'), ['11000', '11001', '11010', '11011', '11100', '11101', '11110', '11111']);
+});
+
+test('26文字版は A=00000 から Z=11001 まで、すべての字が別の符号', () => {
+  const rows = C.table('26');
+  assert.equal(rows.length, 26);
+  rows.forEach((r, i) => {
+    assert.equal(r.letter, String.fromCharCode(65 + i));
+    assert.equal(r.code, i.toString(2).padStart(5, '0'));
+    assert.equal(r.label, r.letter);
+  });
+  assert.deepEqual(C.unusedCodes('26'), ['11010', '11011', '11100', '11101', '11110', '11111']);
+  assert.equal(C.codeOf('?', '26'), null);
+  assert.equal(C.codeOf('AB', '26'), null);
+});
+
+test('ベーコン自身の例: Fuge は F V G E ＝ aabab baabb aabba aabaa（1623年 p.279）', () => {
+  const r = C.encode('Fuge', '24');
+  assert.equal(r.letters, 'FUGE');
+  assert.equal(C.formatBits(r.bits, 'ab', '5'), 'aabab baabb aabba aabaa');
+  assert.equal(C.decode(r.bits, '24').text, 'FUGE');
+});
+
+test('HELLO と SOS の既知解答（24文字版と26文字版で違う）', () => {
+  assert.equal(C.formatBits(C.encode('HELLO', '24').bits, 'ab'), 'aabbbaabaaababaababaabbab');
+  assert.equal(C.formatBits(C.encode('HELLO', '26').bits, 'ab'), 'aabbbaabaaababbababbabbba');
+  assert.equal(C.formatBits(C.encode('SOS', '24').bits, '01', '5'), '10001 01101 10001');
+  assert.equal(C.formatBits(C.encode('SOS', '26').bits, '01', '5'), '10010 01110 10010');
+  assert.equal(C.formatBits(C.encode('SOS', '24').bits, 'AB'), 'BAAABABBABBAAAB');
+  assert.equal(C.formatBits('0011100100', '01', '10'), '0011100100');
+  assert.equal(C.formatBits('001110010011', 'AB', '10'), 'AABBBAABAA BB');
+});
+
+test('暗号化は全角英字を半角に、英字以外（空白を除く）を数えて外し、24文字版では J・V の置き換えを数える', () => {
+  const r = C.encode('Ｈｉ, Jove! 日本 2026', '24');
+  assert.equal(r.letters, 'HIIOUE');
+  assert.equal(r.dropped, 8);
+  assert.equal(r.merged, 2);
+  assert.equal(C.encode('Jove', '26').letters, 'JOVE');
+  assert.equal(C.encode('Jove', '26').merged, 0);
+  assert.deepEqual(C.encode('', '24'), { letters: '', bits: '', pairs: [], dropped: 0, merged: 0 });
+  assert.deepEqual(C.encode('ij uv', '24').pairs.map((p) => p.label), ['I/J', 'I/J', 'U/V', 'U/V']);
+});
+
+test('復号: A・a・0 と B・b・1 を読み、空白は飛ばし、全角は半角にする。ほかの文字は数えるか、strict なら止める', () => {
+  assert.deepEqual(C.parseCipher('AABBB aabaa 01 ＡＢ'), { ok: true, bits: '001110010001' + '01', invalid: 0, first: null });
+  const loose = C.parseCipher('AABBB-AABAA/x');
+  assert.equal(loose.ok, true);
+  assert.equal(loose.bits, '0011100100');
+  assert.equal(loose.invalid, 3);
+  assert.deepEqual(loose.first, { ch: '-', index: 6 });
+  const strict = C.parseCipher('AABBB-AABAA', { strict: true });
+  assert.equal(strict.ok, false);
+  assert.deepEqual(strict.first, { ch: '-', index: 6 });
+  assert.equal(C.parseCipher('AABBB AABAA\n', { strict: true }).ok, true);
+});
+
+test('復号: どの字にも当たらない符号は ? で数え、5に満たない端数を返す', () => {
+  const d = C.decode('11111' + '00111' + '11', '26');
+  assert.equal(d.text, '?H');
+  assert.equal(d.unknown, 1);
+  assert.equal(d.remainder, 2);
+  assert.deepEqual(d.steps.map((s) => [s.code, s.letter]), [['11111', null], ['00111', 'H']]);
+  assert.equal(C.decode('11000', '24').text, '?');
+  assert.equal(C.decode('11000', '26').text, 'Y');
+  assert.equal(C.decode('10111', '24').text, 'Z');
+  assert.equal(C.decode('', '24').text, '');
+});
+
+test('フリードマン夫妻の墓碑: セリフの字を大文字にした KnOwledGe Is pOwEr は、24文字版で WFF（末尾の1ビットは余り）', () => {
+  const x = C.extractCase('KnOwledGe Is pOwEr');
+  assert.equal(C.formatBits(x.bits, 'ab', '5'), 'babaa aabab aabab a');
+  const m = C.readMessage(x.bits, '24');
+  assert.equal(m.text, 'WFF');
+  assert.equal(m.remainder, 1);
+  assert.equal(C.readMessage(x.bits, '26').text, 'UFF');
+});
+
+test('読み取り: 末尾の「全部 a の組」は余りとして外し、外した数を返す（A で終わる語も戻せる）', () => {
+  const bits = C.encode('IDEA', '24').bits + '00000'.repeat(3) + '00';
+  const m = C.readMessage(bits, '24');
+  assert.equal(m.text, 'IDE');
+  assert.equal(m.trimmed, 4);
+  assert.equal(m.full, 'IDEAAAA');
+  assert.equal(m.remainder, 2);
+  assert.equal(C.readMessage(bits, '24', { trim: false }).text, 'IDEAAAA');
+  assert.equal(C.readMessage('00000', '24').text, '');
+});
+
+test('容量: 大小は ASCII の英字、太字・斜体は空白以外の書記素、ゼロ幅は書記素の数', () => {
+  const cover = `Hi ${cp(0x1f953)} é ${cp(0x1f468, 0x200d, 0x1f469, 0x200d, 0x1f467)}\n日本`;
+  assert.equal(C.capacity('case', cover), 2);
+  assert.equal(C.capacity('bold', cover), 7);
+  assert.equal(C.capacity('italic', cover), 7);
+  assert.equal(C.capacity('zw', cover), 11);
+  assert.equal(C.capacity('nope', cover), 0);
+});
+
+test('埋め込み: ビットがない・容量が足りない・方式が違うときは作らない', () => {
+  assert.deepEqual(C.embed('abc', '', 'case'), { ok: false, error: 'noBits', need: 0, supply: 3 });
+  assert.deepEqual(C.embed('abc', '0101', 'case'), { ok: false, error: 'short', need: 4, supply: 3 });
+  assert.deepEqual(C.embed('abc', '0', 'html'), { ok: false, error: 'method' });
+});
+
+test('大小: メッセージの後ろの英字は小文字にそろえる（fillRest=false なら元のまま）', () => {
+  const cover = 'This is a Cover TEXT for Bacon.';
+  const bits = C.encode('HI', '24').bits;
+  const r = C.embed(cover, bits, 'case');
+  assert.equal(r.text, 'thIS Is A cover text for bacon.');
+  assert.equal(C.readMessage(C.extractCase(r.text).bits, '24').text, 'HI');
+  const keep = C.embed(cover, bits, 'case', { fillRest: false });
+  assert.equal(keep.text, 'thIS Is A cover TEXT for Bacon.');
+  assert.notEqual(C.readMessage(C.extractCase(keep.text).bits, '24').text, 'HI');
+});
+
+test('太字・斜体: 空白には印を付けず、続く同じ印はまとめ、HTML はエスケープして b・i で囲む', () => {
+  const r = C.embed('ab <c> d', '11010', 'bold');
+  assert.deepEqual(r.parts, [{ text: 'ab', mark: true }, { text: ' <', mark: false }, { text: 'c', mark: true }, { text: '> d', mark: false }]);
+  assert.equal(r.html, '<b>ab</b> &lt;<b>c</b>&gt; d');
+  assert.equal(r.text, 'ab <c> d');
+  assert.equal(C.extractRuns(C.runsFromParts(r.parts, 'bold'), 'bold').bits, '110100');
+  const i = C.embed('x\ny', '01', 'italic');
+  assert.equal(i.html, 'x<br>\n<i>y</i>');
+});
+
+test('ゼロ幅: 書記素の後ろに入れ、絵文字・結合文字を壊さない。ゼロ幅を取り除くと元の文に戻る', () => {
+  const cover = `I ${cp(0x1f953)} bacon ${cp(0x1f1ef, 0x1f1f5)} e${cp(0x301)} ${cp(0x1f468, 0x200d, 0x1f469, 0x200d, 0x1f467)}!`;
+  const bits = C.encode('HI', '24').bits;
+  const r = C.embed(cover, bits, 'zw');
+  assert.equal(loneSurrogates(r.text), 0);
+  assert.equal(r.text.split(C.ZW_A).join('').split(C.ZW_B).join(''), cover);
+  assert.equal(C.extractZw(r.text).bits, bits);
+  assert.equal(C.graphemes(r.text.split(C.ZW_A).join('').split(C.ZW_B).join('')).length, C.graphemes(cover).length);
+});
+
+test('ゼロ幅の抽出は数値文字参照も読み、ほかのツールのゼロ幅（ZWJ・WORD JOINER・BOM）は数だけ返す', () => {
+  const x = C.extractZw(`a&#x200B;b&#8204;c${String.fromCharCode(0x200d)}d${String.fromCharCode(0x2060)}`);
+  assert.equal(x.bits, '01');
+  assert.equal(x.other, 2);
+});
+
+test('往復: 4方式 × 2版 × 乱数のメッセージで、埋め込んで抽出すると同じメッセージに戻る', () => {
+  const rnd = seeded(55);
+  const covers = [
+    'The quick brown fox jumps over the lazy dog. '.repeat(12),
+    `今日は良い天気ですね。散歩でもしませんか？ ${cp(0x1f953)} Bacon and eggs! `.repeat(10)
+  ];
+  let n = 0;
+  for (const variant of ['24', '26']) {
+    const letters = C.alphabet(variant);
+    for (let k = 0; k < 20; k++) {
+      let msg = '';
+      const len = 1 + rnd(8);
+      for (let j = 0; j < len; j++) msg += letters[rnd(letters.length)];
+      if (msg.endsWith('A')) msg += 'Z';
+      const bits = C.encode(msg, variant).bits;
+      for (const method of C.METHODS) {
+        for (const cover of covers) {
+          if (method === 'case' && cover === covers[1]) continue;
+          const r = C.embed(cover, bits, method);
+          assert.equal(r.ok, true, `${method} ${msg}`);
+          assert.equal(loneSurrogates(r.text), 0);
+          const x = method === 'case' ? C.extractCase(r.text)
+            : method === 'zw' ? C.extractZw(r.text)
+              : C.extractRuns(C.runsFromParts(r.parts, method), method);
+          assert.equal(C.readMessage(x.bits, variant).text, msg, `${variant} ${method} ${msg}`);
+          n++;
+        }
+      }
+    }
+  }
+  assert.equal(n, 2 * 20 * 7);
+});
+
+// runs を「印の付いた字」の a/b 列にする（空白以外）
+const marks = (runs, key) => runs.map((r) => [...r.text].filter((c) => !/\s/.test(c)).map(() => (r[key] ? 'b' : 'a')).join('')).join('');
+
+test('HTML の読み取り: b・strong・i・em・class・style（Word・Google ドキュメントの書き方）', () => {
+  const word = "<p class=MsoNormal><b style='mso-bidi-font-weight:normal'>K</b>n<b>O</b>wl e<span style=\"font-weight:700\">d</span>Ge "
+    + '<b style="font-weight:normal">I</b>s <strong>p</strong><span class="x bacon-bold">O</span>w<span style="color:red;font-weight: bolder">E</span>r</p>';
+  assert.equal(marks(C.runsFromHtml(word), 'bold'), 'babaaabaaaabbaba');
+  const it = '<em>a</em>b<i>c<span style="font-style:normal">d</span></i><span style="font-style: oblique">e</span><span class="bacon-italic">f</span>';
+  assert.equal(marks(C.runsFromHtml(it), 'italic'), 'bababb');
+  assert.equal(marks(C.runsFromHtml('<b>x<i>y</i></b>z'), 'italic'), 'aba');
+});
+
+test('HTML の読み取り: 文字参照・コメント・script や style の中身・閉じ忘れ・タグでない「<」', () => {
+  const runs = C.runsFromHtml('A&amp;B&#x41;&#66;&nbsp;&bogus;<!-- <b>no</b> --><script>var b="<b>x</b>"</script><style>b{}</style>'
+    + '<b>bold<br>still</p>end</b> 1 < 2 <i/>x<img src=x alt="<b>">');
+  assert.equal(runs.map((r) => r.text).join(''), `A&BAB${String.fromCharCode(0xa0)}&bogus;bold\nstillend 1 < 2 x`);
+  assert.deepEqual(runs.filter((r) => r.bold).map((r) => r.text), ['bold', '\n', 'still', 'end']);
+  assert.equal(C.decodeEntities('&#xD800;&#0;&#x1F953;'), `&#xD800;&#0;${cp(0x1f953)}`);
+});
+
+test('HTML の読み取り: 埋め込みの HTML（b・i と <br>）をそのまま読み戻せる', () => {
+  for (const method of ['bold', 'italic']) {
+    const bits = C.encode('Fuge', '24').bits;
+    const r = C.embed('Manere te volo\ndonec venero <script> & more letters here', bits, method);
+    const x = C.extractRuns(C.runsFromHtml(r.html), method);
+    assert.equal(C.readMessage(x.bits, '24').text, 'FUGE', method);
+  }
+});
+
+test('ダウンロード用の HTML 文書は、題名をエスケープし、スクリプトを含まない', () => {
+  const doc = C.htmlDocument('<b>x</b>', { lang: 'en', title: '<script>' });
+  assert.match(doc, /^<!DOCTYPE html>\n<html lang="en">/);
+  assert.match(doc, /<title>&lt;script&gt;<\/title>/);
+  assert.doesNotMatch(doc, /<script/);
+  assert.match(C.htmlDocument('', { lang: 'fr' }), /<html lang="ja">/);
+});
+
+test('反転は 0 と 1 を入れ替える', () => {
+  assert.equal(C.invertBits('00101'), '11010');
+  assert.equal(C.invertBits(''), '');
+});

@@ -2,46 +2,47 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Overview
+## Project Overview
 
-Bacon CipherLab is a web-based educational tool for learning Bacon's Cipher. It supports encoding/decoding with two cipher variants (24/26 letter) and steganographic embedding/extraction using multiple methods.
-
-## Development
-
-- **No build process** - directly edit HTML/CSS/JS files
-- **Test locally** - open `index.html` in a browser
-- **Deployment** - GitHub Pages serves files directly from repository
+Bacon CipherLab is an educational web tool for Bacon's cipher. It converts between plaintext and five-symbol a/b codes (the 24-letter table Bacon published in 1623, and the later 26-letter variant), hides the a/b symbols in a cover text (case, bold, italic, zero-width characters) and reads them back, all without network access.
 
 ## Architecture
 
-### Files
-- `index.html` - Tab-based UI with 5 panels: Encrypt, Decrypt, Cover Embed, Cover Extract, Matrix
-- `script.js` - All application logic (~530 lines)
-- `style.css` - Styling with CSS custom properties for dark/light themes
+Client-side only, no build step, no dependencies. Scripts are classic scripts (not ES modules) so that `index.html` also works from `file://`. Each script puts one object on `globalThis`.
 
-### Core Functions (script.js)
+- `index.html` - Five tabs (Encrypt / Decrypt / Embed / Extract / Table) using the WAI-ARIA tab pattern. Meta CSP with `style-src 'self'` and `connect-src 'none'`
+- `js/bacon-core.js` (`BaconCore`) - DOM-free logic
+  - `table()` / `codeOf()` / `letterOf()`: the 24-letter table is Bacon's (`ABCDEFGHIKLMNOPQRSTUWXYZ`, J→I, V→U, labels `I/J` and `U/V`); the 26-letter table is A..Z. Code = index in 5-bit binary (a=0, b=1)
+  - `encode()`: NFKC, ASCII letters only; returns counts of dropped characters and J/V merges. `parseCipher()` / `decode()`: a/A/0 and b/B/1, spaces skipped; other characters are counted or stop parsing (`strict`); remainder bits and out-of-range codes (`?`) are reported
+  - `embed()`: methods `case` (ASCII letters), `bold` / `italic` (non-space graphemes; `parts` with marks, `html` with `<b>`/`<i>`), `zw` (U+200B = a, U+200C = b after each grapheme, via `Intl.Segmenter`). Case fills letters after the message with lowercase (`fillRest`)
+  - `extractCase()` / `extractZw()` / `extractRuns()`; `runsFromHtml()` reads HTML tokens without the DOM (b/strong/i/em, `bacon-bold`/`bacon-italic` classes, `font-weight`/`font-style`; skips script/style/comments). `readMessage()` drops trailing all-a groups as padding
+- `js/messages.js` (`BaconMessages`) and `js/i18n.js` (`BaconI18n`) - Japanese/English dictionaries and static text replacement (`data-i18n`, `data-i18n-attr`). Language: `?lang=` → saved choice → browser language
+- `js/theme-init.js`, `js/theme.js` (`BaconTheme`) - Light/dark theme
+- `script.js` - DOM handling only. Builds every dynamic element with `textContent` (no `innerHTML`, no `DOMParser`; parsing a `style` attribute in the browser under the CSP reports violations)
+- `style.css` - Color tokens on `:root`; dark values under `prefers-color-scheme` and `[data-theme="dark"]` must stay identical
 
-**Cipher Engine:**
-- `buildMaps(variant)` - Creates forward/reverse lookup Maps for letter↔bits conversion
-- `lettersToBits_AB(text, variant)` - Encodes plaintext to 5-bit sequences
-- `bitsToLetters(bits, variant)` - Decodes bits back to letters
-- `parseBitsFromInput(s)` - Normalizes A/B/a/b/0/1 input to bit array
+## Storage
 
-**Steganography:**
-- `countCoverCapacity(method, text)` - Calculates available embedding slots
-- Embed methods: `case` (lowercase/uppercase), `bold`/`italic` (HTML spans), `zw` (zero-width U+200B/U+200C)
+- `localStorage`: `bacon-cipherlab-lang`, `bacon-cipherlab-theme` only. Every access is wrapped in `try`; the page keeps working when storage is blocked
 
-**UI Helpers:**
-- `$()` / `$$()` - querySelector shortcuts
-- `toast(msg)` - 1.3s notification display
-- `escapeHTML(s)` - XSS prevention for dynamic content
+## Development Commands
 
-### Bacon Cipher Variants
-- **24-letter**: I/J combined, U/V combined (historical standard)
-- **26-letter**: All letters distinct (modern variant)
-- Each letter maps to 5 bits (00000-11001 for 24-letter, 00000-11001 for 26-letter)
+```bash
+npm test                     # node --test (Node.js 22+, no dependencies)
+python -m http.server 8000   # then open http://localhost:8000/
+```
 
-### State Management
-- No framework - vanilla JS with direct DOM manipulation
-- Theme preference stored in `localStorage`
-- All data processing is client-side only
+## Testing
+
+- `test/core.test.js` - Bacon's original 24 rows, the 26-letter table, known answers (Fuge, HELLO, SOS, the Friedman tombstone = WFF), decoding notes, round trips for 4 methods × 2 variants, intact emoji, HTML token reading
+- `test/html.test.js`, `test/contrast.test.js`, `test/messages.test.js`, `test/i18n.test.js`, `test/format.test.js` - CSP, ARIA, dictionaries, contrast, formatting
+- `test/readme.test.js` - README tables and examples are checked against the core (the zero-width example contains real U+200B/U+200C); Japanese/English READMEs must have matching headings, references and directory trees
+
+When you change behavior, update the README tables (both languages) so that `test/readme.test.js` keeps passing. The README examples were generated by the core; regenerate them rather than editing by hand.
+
+## Writing rules for Japanese text
+
+- Body text in です・ます; lists and tables in である
+- No space between Japanese and alphanumerics; long vowel marks (ブラウザー, フォルダー, ディレクトリー, リポジトリー, エディター)
+- 「わかる」 in hiragana (「分ける」「分かれる」 stay in kanji)
+- At most two bold spans per README section; do not bold list item labels

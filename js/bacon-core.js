@@ -11,7 +11,10 @@
   const LABEL_24 = { I: 'I/J', U: 'U/V' };
   const FORMATS = ['01', 'AB', 'ab'];
   const GROUPS = ['none', '5', '10'];
-  const METHODS = ['case', 'bold', 'italic', 'zw'];
+  const METHODS = ['case', 'bold', 'italic', 'font', 'zw'];
+  // 二書体の方式の書体（a＝サンセリフ、b＝セリフ。墓碑と同じく、セリフの字が b）
+  const FONT_A = "'Segoe UI', Arial, Helvetica, sans-serif";
+  const FONT_B = "Georgia, 'Times New Roman', Times, serif";
   const MAX_INPUT = 100000;
 
   // ゼロ幅の2文字（A＝ZERO WIDTH SPACE、B＝ZERO WIDTH NON-JOINER）。ソースに不可視の文字を置かないよう数値で書く
@@ -151,7 +154,7 @@
   function capacity(method, cover) {
     const s = String(cover);
     if (method === 'case') return [...s].filter(isAsciiLetter).length;
-    if (method === 'bold' || method === 'italic') return graphemes(s).filter((g) => !isSpace(g)).length;
+    if (method === 'bold' || method === 'italic' || method === 'font') return graphemes(s).filter((g) => !isSpace(g)).length;
     if (method === 'zw') return graphemes(s).length;
     return 0;
   }
@@ -193,7 +196,7 @@
       return { ok: true, method, need, supply, text, parts: [{ text, mark: false }], html: htmlText(text) };
     }
 
-    // 太字・斜体: 空白以外の書記素に1ビットずつ。B（1）の字に印を付ける。続く同じ印はまとめる
+    // 太字・斜体・二書体: 空白以外の書記素に1ビットずつ。B（1）の字に印を付ける。続く同じ印はまとめる
     const parts = [];
     let i = 0;
     for (const g of graphemes(src)) {
@@ -202,6 +205,10 @@
       const last = parts[parts.length - 1];
       if (last && last.mark === mark) last.text += g;
       else parts.push({ text: g, mark });
+    }
+    if (method === 'font') {
+      const body = parts.map((p) => (p.mark ? `<span style="font-family: ${FONT_B}">${htmlText(p.text)}</span>` : htmlText(p.text))).join('');
+      return { ok: true, method, need, supply, text: src, parts, html: `<span style="font-family: ${FONT_A}">${body}</span>` };
     }
     const tag = method === 'bold' ? 'b' : 'i';
     const html = parts.map((p) => (p.mark ? `<${tag}>${htmlText(p.text)}</${tag}>` : htmlText(p.text))).join('');
@@ -239,7 +246,7 @@
   function extractRuns(runs, method) {
     let bits = '';
     for (const r of runs) {
-      const on = method === 'bold' ? !!r.bold : !!r.italic;
+      const on = method === 'bold' ? !!r.bold : method === 'italic' ? !!r.italic : r.serif === true;
       for (const g of graphemes(r.text)) if (!isSpace(g)) bits += on ? '1' : '0';
     }
     return { bits, carriers: bits.length };
@@ -256,6 +263,16 @@
   const ATTR = /([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
   const WEIGHT = /(?:^|;)\s*font-weight\s*:\s*([a-z0-9]+)/;
   const SLANT = /(?:^|;)\s*font-style\s*:\s*([a-z]+)/;
+  const FAMILY = /(?:^|;)\s*font-family\s*:\s*([^;]+)/;
+  // 書体名の並びの最初の名前で、セリフ（true）・サンセリフ（false）・わからない（null）を決める。sans-serif を先に見る
+  const SANS_NAMES = /sans|arial|helvetica|verdana|segoe|calibri|tahoma|roboto|gothic|meiryo|ゴシック|メイリオ/;
+  const SERIF_NAMES = /serif|times|georgia|garamond|cambria|palatino|book antiqua|century|mincho|明朝/;
+  function serifOf(family) {
+    const first = String(family).toLowerCase().split(',')[0].replace(/["']/g, '').trim();
+    if (SANS_NAMES.test(first)) return false;
+    if (SERIF_NAMES.test(first)) return true;
+    return null;
+  }
 
   function decodeEntities(s) {
     return s.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, v) => {
@@ -278,10 +295,10 @@
     const s = String(html);
     const lower = s.toLowerCase();
     const runs = [];
-    const stack = [{ tag: '', bold: false, italic: false }];
+    const stack = [{ tag: '', bold: false, italic: false, serif: null }];
     const top = () => stack[stack.length - 1];
     const push = (text) => {
-      if (text) runs.push({ text: decodeEntities(text), bold: top().bold, italic: top().italic });
+      if (text) runs.push({ text: decodeEntities(text), bold: top().bold, italic: top().italic, serif: top().serif });
     };
     let i = 0;
     while (i < s.length) {
@@ -326,7 +343,7 @@
         continue;
       }
       if (VOID.includes(tag) || /\/\s*$/.test(m[3])) continue;
-      const { class: klass = '', style: inline = '' } = attrsOf(m[3]);
+      const { class: klass = '', style: inline = '', face = '' } = attrsOf(m[3]);
       const cls = String(klass).split(/\s+/);
       const style = String(inline).toLowerCase();
       let bold = top().bold || tag === 'b' || tag === 'strong' || cls.includes('bacon-bold');
@@ -335,13 +352,19 @@
       if (w) bold = w[1] === 'bold' || w[1] === 'bolder' || parseInt(w[1], 10) >= 600;
       const sl = style.match(SLANT);
       if (sl) italic = sl[1] === 'italic' || sl[1] === 'oblique';
-      stack.push({ tag, bold, italic });
+      let serif = top().serif;
+      const fam = style.match(FAMILY);
+      const named = fam ? serifOf(fam[1]) : tag === 'font' && face ? serifOf(face) : null;
+      if (named !== null) serif = named;
+      stack.push({ tag, bold, italic, serif });
     }
     return runs;
   }
 
   // embed() の parts を extractRuns() の形にする（テストと画面のプレビューで使う）
-  const runsFromParts = (parts, method) => parts.map((p) => ({ text: p.text, bold: method === 'bold' && p.mark, italic: method === 'italic' && p.mark }));
+  const runsFromParts = (parts, method) => parts.map((p) => ({
+    text: p.text, bold: method === 'bold' && p.mark, italic: method === 'italic' && p.mark, serif: method === 'font' ? p.mark : null
+  }));
 
   // ===== 解読の補助（ずれ・入れ替え・読み違いの候補・辞書での読み替え・読み方の総当たり） =====
   // 英語の文字の出現頻度（%）。Wikipedia「Letter frequency」の Texts 列（出典は Lewand, Cryptological Mathematics, 2000）
@@ -362,7 +385,7 @@
     + 'SEND RUN STOP START END TODAY TOMORROW MORNING EVENING BRIDGE STATION CASTLE TOWER GATE DOOR WALL SIGNAL TRUTH HONOR'
   ).split(' ');
   const SCORE_LETTERS = 400;
-  const READINGS = ['symbols', 'case', 'half', 'word', 'vowel', 'two', 'bold', 'italic', 'zw'];
+  const READINGS = ['symbols', 'case', 'half', 'word', 'vowel', 'two', 'bold', 'italic', 'font', 'zw'];
 
   const cache = {};
   // 版ごとの辞書（24文字版では J→I、V→U にそろえた綴りで照らし、元の綴りを返す）と、正規化した出現確率
@@ -522,6 +545,7 @@
     if (html) {
       add('bold', extractRuns(runs, 'bold').bits);
       add('italic', extractRuns(runs, 'italic').bits);
+      if (runs.some((r) => r.serif !== null)) add('font', extractRuns(runs, 'font').bits);
     }
     add('zw', extractZw(s).bits);
     return out;
@@ -577,12 +601,83 @@
       + 'building practical solutions for complex problems across the globe.', encode('The flag is bacon', '24').bits, 'case').text;
   }
 
+
+  // ===== 経路を通したときに残るか（生存性） =====
+  // 埋め込んだ HTML を、よくある処理（経路）に通してから抽出し、元のメッセージに戻るかを見る
+  const ROUTES = ['html', 'plain', 'nfkc', 'ignorable', 'upper', 'lower', 'nfkccf', 'space'];
+  const IGNORABLE = /\p{Default_Ignorable_Code_Point}/gu;
+  const plainOf = (html) => runsFromHtml(html).map((r) => r.text).join('');
+
+  function route(id, html) {
+    const s = String(html);
+    if (id === 'plain') return htmlText(plainOf(s));
+    if (id === 'nfkc') return s.normalize('NFKC');
+    if (id === 'ignorable') return s.replace(IGNORABLE, '');
+    if (id === 'upper') return s.toUpperCase();
+    if (id === 'lower') return s.toLowerCase();
+    // NFKC_CF の近似（NFKC・ふつうは表示しない文字の除去・小文字化）
+    if (id === 'nfkccf') return s.normalize('NFKC').replace(IGNORABLE, '').toLowerCase();
+    if (id === 'space') return s.replace(/\s+/g, ' ');
+    return s;
+  }
+
+  function extractFrom(html, method) {
+    if (method === 'case') return extractCase(plainOf(html));
+    if (method === 'zw') return extractZw(plainOf(html));
+    return extractRuns(runsFromHtml(html), method);
+  }
+
+  function survival(cover, bits, variant, { fillRest = true } = {}) {
+    const want = readMessage(bits, variant).text;
+    const methods = METHODS.map((method) => {
+      const e = embed(cover, bits, method, { fillRest });
+      if (!e.ok) return { method, ok: false, error: e.error, need: e.need, supply: e.supply };
+      const cells = ROUTES.map((id) => {
+        const read = readMessage(extractFrom(route(id, e.html), method).bits, variant).text;
+        return { route: id, read, survived: read === want };
+      });
+      return { method, ok: true, cells };
+    });
+    return { want, methods };
+  }
+
+  // ===== 二書体の練習 =====
+  // 0 番は墓碑の再現（Elonka Dunin の説明どおり、セリフの字を大文字で書いた KnOwledGe Is pOwEr）。1 番からは練習の問題
+  const LAB_TOMB = 'KnOwledGe Is pOwEr';
+  const LAB_MESSAGES = ['SPY', 'FLEE', 'HIDE', 'RUN', 'YES', 'HELP', 'GOLD', 'DAWN', 'NOON', 'SAFE', 'WAIT', 'KEY'];
+  const LAB_COVERS = [
+    'TRUTH WILL OUT IN THE END', 'FORTUNE FAVORS THE BOLD AND THE BRAVE', 'NOTHING VENTURED NOTHING GAINED',
+    'ALL THAT GLITTERS IS NOT GOLD', 'TIME AND TIDE WAIT FOR NO MAN', 'ACTIONS SPEAK LOUDER THAN WORDS',
+    'WELL BEGUN IS HALF DONE TODAY', 'PRACTICE MAKES PERFECT IN TIME', 'BETTER LATE THAN NEVER AT ALL',
+    'WHERE THERE IS A WILL THERE IS A WAY', 'EVERY CLOUD HAS A SILVER LINING', 'FORTUNE FAVORS THE PREPARED MIND'
+  ];
+  const LAB_COUNT = LAB_MESSAGES.length + 1;
+
+  function labProblem(index) {
+    const i = ((Math.trunc(Number(index)) || 0) % LAB_COUNT + LAB_COUNT) % LAB_COUNT;
+    let cover;
+    let marks;
+    if (i === 0) {
+      cover = LAB_TOMB.toUpperCase();
+      marks = [...LAB_TOMB].filter(isAsciiLetter).map((c) => c === c.toUpperCase());
+    } else {
+      cover = LAB_COVERS[(i - 1) % LAB_COVERS.length];
+      const bits = encode(LAB_MESSAGES[i - 1], '24').bits;
+      marks = [...cover].filter(isAsciiLetter).map((c, k) => bits[k] === '1');
+    }
+    let k = 0;
+    const tokens = [...cover].map((ch) => (isAsciiLetter(ch) ? { ch, b: marks[k], index: k++ } : { ch, space: true }));
+    const bits = marks.map((b) => (b ? '1' : '0')).join('');
+    return { index: i, cover, tokens, letters: marks.length, answer: readMessage(bits, '24').text, bits };
+  }
+
   globalThis.BaconCore = {
     VARIANTS, FORMATS, GROUPS, METHODS, MAX_INPUT, ZW_A, ZW_B, ZW_OTHER,
     alphabet, codeOf, letterOf, labelOf, table, unusedCodes,
     encode, formatBits, invertBits, parseCipher, decode, readMessage,
     graphemes, capacity, escapeHtml, embed, htmlDocument,
     extractCase, extractZw, extractRuns, runsFromHtml, decodeEntities, runsFromParts,
-    FREQ, WORDS, READINGS, SAMPLE_IDS, nearLetters, cover, englishScore, readCipher, readings, solve, makeSample
+    FREQ, WORDS, READINGS, SAMPLE_IDS, nearLetters, cover, englishScore, readCipher, readings, solve, makeSample,
+    FONT_A, FONT_B, serifOf, ROUTES, route, survival, LAB_COUNT, labProblem
   };
 })();

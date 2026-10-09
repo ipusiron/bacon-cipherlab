@@ -370,6 +370,12 @@ The photo is "ANCExplorer William F. Friedman grave" on Wikimedia Commons (publi
 
 ## 🎯 Use cases
 
+### Ways of using this tool in particular
+
+- Noticing misreadings through unused codes (a lesson on error detection): of the 32 five-bit codes, the 24-letter version leaves 8 unused and the 26-letter version leaves 6. If the case of a single letter is misread, the result lands on an unused code and looks wrong in only 16 of 120 cases (13.3%) for the 24-letter version and 16 of 130 cases (12.3%) for the 26-letter version. The rest silently turn into another letter. A class can count this to see why parity and error-detecting codes are needed
+- Estimating how much fits in a cover text (the efficiency of steganography): the case method carries one letter in five Latin letters. The CTF example sentence below (127 Latin letters) hides up to 25 letters, and the post in Scenario 2 (21 characters) hides up to 4 letters with zero-width characters. Puzzle and CTF authors can work back from the length of the answer to the length of the cover text
+- Comparing with 5-bit telegraph codes: the Baudot code used in telegraphy also writes one character in 5 bits. While Bacon's cipher fits its 24 or 26 letters, telegraphy also needed digits and symbols, so it added codes that switch between letters and figures to stretch the 32 slots. In a class on the history of communication, show side by side why this tool drops `{}` and digits and how telegraphy solved the same constraint
+
 ### Classes and self-study
 
 - Show the step that turns letters into codes (substitution) apart from the step that hides the codes in a text (concealment), to explain the difference between cryptography and steganography

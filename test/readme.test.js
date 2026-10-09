@@ -275,3 +275,37 @@ test('画像: 参照はすべて実在する。スクリーンショットは日
   const files = (dir) => fs.readdirSync(path.join(ROOT, dir)).filter((f) => /\.(png|jpg)$/.test(f)).map((f) => `${dir}/${f}`);
   for (const f of [...files('assets'), ...files('assets/en')]) assert.ok(used.has(f), `参照していない画像: ${f}`);
 });
+
+test('このツールならではの使い方の数値は計算部の出力と同じ（日英）', () => {
+  const [ja, en] = [DOCS.ja.text, DOCS.en.text];
+  // 1ビットの読み誤りが使われない符号に落ちる数（使う符号×5か所）
+  const detect = (v) => {
+    const unused = new Set(C.unusedCodes(v));
+    const used = [...C.alphabet(v)].map((l) => C.codeOf(l, v));
+    let hit = 0;
+    for (const c of used) for (let i = 0; i < 5; i++) if (unused.has(c.slice(0, i) + (c[i] === '0' ? '1' : '0') + c.slice(i + 1))) hit++;
+    return { unused: unused.size, flips: used.length * 5, hit, pct: (hit / (used.length * 5) * 100).toFixed(1) };
+  };
+  const [d24, d26] = [detect('24'), detect('26')];
+  assert.deepEqual([d24.unused, d24.flips, d24.hit, d24.pct], [8, 120, 16, '13.3']);
+  assert.deepEqual([d26.unused, d26.flips, d26.hit, d26.pct], [6, 130, 16, '12.3']);
+  assert.ok(ja.includes(`24文字版は${d24.unused}通り、26文字版は${d26.unused}通りを使わない`));
+  const jaRate = `24文字版で${d24.flips}通り中${d24.hit}通り（${d24.pct}%）、26文字版で${d26.flips}通り中${d26.hit}通り（${d26.pct}%）`;
+  assert.ok(ja.includes(jaRate));
+  assert.ok(en.includes(`the 24-letter version leaves ${d24.unused} unused and the 26-letter version leaves ${d26.unused}`));
+  const enRate = `${d24.hit} of ${d24.flips} cases (${d24.pct}%) for the 24-letter version and ${d26.hit} of ${d26.flips} cases (${d26.pct}%)`;
+  assert.ok(en.includes(enRate));
+  // CTFの出題例の文と想定シナリオ2の投稿に隠せる字数（README のコードブロックから取り出す）
+  const blocks = [...ja.matchAll(/```text\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+  const ctf = blocks.find((b) => b.startsWith('WelCome TO Our'));
+  const post = blocks.find((b) => b.startsWith('今'));
+  assert.ok(ctf && post);
+  // 投稿のブロックにはHELPを隠したゼロ幅文字が入っているので、隠す前の見えている文で数える
+  const visible = [...post].filter((ch) => ch !== C.ZW_A && ch !== C.ZW_B).join('');
+  const [c1, c2] = [C.capacity('case', ctf), C.capacity('zw', visible)];
+  assert.deepEqual([c1, Math.floor(c1 / 5), c2, Math.floor(c2 / 5)], [127, 25, 21, 4]);
+  const [k1, k2] = [Math.floor(c1 / 5), Math.floor(c2 / 5)];
+  assert.ok(ja.includes(`下の「CTFの出題と解答」の例文（英字${c1}字）なら${k1}字まで、想定シナリオ2の投稿（${c2}字）にはゼロ幅文字の方式で${k2}字まで`));
+  assert.ok(en.includes(`The CTF example sentence below (${c1} Latin letters) hides up to ${k1} letters`));
+  assert.ok(en.includes(`the post in Scenario 2 (${c2} characters) hides up to ${k2} letters`));
+});
